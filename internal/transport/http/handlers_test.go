@@ -13,6 +13,32 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+type testCase struct {
+	testName string
+	method   string
+	key      string
+	value    string
+	wantBody string
+	status   int
+}
+
+type subtest func(t *testing.T)
+
+func subTestTemplate(router http.Handler, c testCase) subtest {
+	return func(t *testing.T) {
+		rr := httptest.NewRecorder()
+		req := makeReqBasedOnMethod(t, c.method, c.key, c.value)
+		router.ServeHTTP(rr, req)
+
+		b, err := io.ReadAll(rr.Body)
+		assert.NoError(t, err)
+		assert.EqualValues(t, c.wantBody, string(b))
+		statusCodeAssertion(t, rr.Result().StatusCode, c.status)
+
+		assert.NoError(t, req.Body.Close())
+	}
+}
+
 func NewTestRouter(s store.Store) *chi.Mux {
 	hh := NewHandlersProvider(s)
 	mux := chi.NewMux()
@@ -29,14 +55,7 @@ func TestHandlers(t *testing.T) {
 	k, v := "test-key", "test-val"
 	router := NewTestRouter(store.NewStore())
 
-	testCases := []struct {
-		testName string
-		method   string
-		key      string
-		value    string
-		wantBody string
-		status   int
-	}{
+	testCases := []testCase{
 		{
 			testName: "get key in empty store",
 			key:      k,
@@ -73,16 +92,7 @@ func TestHandlers(t *testing.T) {
 	}
 
 	for _, c := range testCases {
-		t.Run(c.testName, func(t *testing.T) {
-			rr := httptest.NewRecorder()
-			req := makeReqBasedOnMethod(t, c.method, c.key, c.value)
-			router.ServeHTTP(rr, req)
-
-			b, err := io.ReadAll(rr.Body)
-			assert.NoError(t, err)
-			assert.EqualValues(t, c.wantBody, string(b))
-			statusCodeAssertion(t, rr.Result().StatusCode, c.status)
-		})
+		t.Run(c.testName, subTestTemplate(router, c))
 	}
 }
 
@@ -148,16 +158,7 @@ func TestInternalErrWithMocks(t *testing.T) {
 	}
 
 	for _, c := range errorTestCases {
-		t.Run(c.testName, func(t *testing.T) {
-			rr := httptest.NewRecorder()
-			req := makeReqBasedOnMethod(t, c.method, c.key, c.value)
-			mockRouter.ServeHTTP(rr, req)
-
-			b, err := io.ReadAll(rr.Body)
-			assert.NoError(t, err)
-			assert.EqualValues(t, c.wantBody, string(b))
-			statusCodeAssertion(t, rr.Result().StatusCode, c.status)
-		})
+		t.Run(c.testName, subTestTemplate(mockRouter, c))
 	}
 }
 
