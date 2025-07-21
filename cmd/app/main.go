@@ -1,7 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"github.com/shrtyk/kv-store/internal/server"
+)
 
 func main() {
-	fmt.Println("Hey")
+	server.Serve(":16700", server.NewHandler())
 }

@@ -2,7 +2,10 @@ module github.com/shrtyk/kv-store
 
 go 1.24.5
 
-require github.com/stretchr/testify v1.10.0
+require (
+	github.com/go-chi/chi/v5 v5.2.2
+	github.com/stretchr/testify v1.10.0
+)
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
