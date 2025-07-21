@@ -6,16 +6,12 @@ import (
 	"sync"
 	"testing"
 
+	tutils "github.com/shrtyk/kv-store/pkg/testutils"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestTransactionFileLoggger(t *testing.T) {
-	testFileName := "test"
-	t.Cleanup(func() {
-		if err := os.Remove(testFileName); err != nil {
-			t.Errorf("failed to delete temprorary test file: %v", err)
-		}
-	})
+	testFileName := tutils.FileWithCleanUp(t, "test")
 
 	k, v := "test-key", "test-val"
 	tl, err := NewFileTransactionalLogger(testFileName)
@@ -23,7 +19,7 @@ func TestTransactionFileLoggger(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	tl.Start(ctx)
+	tl.Start(ctx, nil)
 
 	tl.WritePut(k, v)
 	tl.WriteDelete(k)

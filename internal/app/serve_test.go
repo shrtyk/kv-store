@@ -22,7 +22,7 @@ func TestServe(t *testing.T) {
 	tl := tlog.MustCreateNewFileTransLog(testFileName)
 	defer tl.Close()
 
-	store := store.NewStore(tl)
+	store := store.NewStore()
 	app.Init(
 		WithStore(store),
 		WithTransactionalLogger(tl),

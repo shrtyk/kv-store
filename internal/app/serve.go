@@ -10,13 +10,14 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/shrtyk/kv-store/internal/store"
+	"github.com/shrtyk/kv-store/internal/tlog"
 	httphandlers "github.com/shrtyk/kv-store/internal/transport/http"
 )
 
 func (app *application) Serve(addr string) {
 	s := http.Server{
 		Addr:         addr,
-		Handler:      NewRouter(app.store),
+		Handler:      NewRouter(app.store, app.tl),
 		IdleTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		ReadTimeout:  10 * time.Second,
@@ -37,7 +38,7 @@ func (app *application) Serve(addr string) {
 		close(errc)
 	}()
 
-	app.tl.Start(ctx)
+	app.tl.Start(ctx, app.store)
 	log.Printf("Listening '%s'\n", addr)
 	if err := s.ListenAndServe(); err != http.ErrServerClosed && err != nil {
 		log.Printf("Error during server start: %v", err)
@@ -58,8 +59,8 @@ type HandlersProvider interface {
 	DeleteHandler(w http.ResponseWriter, r *http.Request)
 }
 
-func NewRouter(store store.Store) *chi.Mux {
-	var handlers HandlersProvider = httphandlers.NewHandlersProvider(store)
+func NewRouter(store store.Store, tl tlog.TransactionsLogger) *chi.Mux {
+	var handlers HandlersProvider = httphandlers.NewHandlersProvider(store, tl)
 
 	mux := chi.NewMux()
 	mux.Route("/v1", func(r chi.Router) {

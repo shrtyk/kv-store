@@ -24,8 +24,13 @@ type event struct {
 	value string
 }
 
+type Store interface {
+	Delete(key string) error
+	Put(key, val string) error
+}
+
 type TransactionsLogger interface {
-	Start(ctx context.Context)
+	Start(ctx context.Context, s Store)
 	Close() error
 	WritePut(key, val string)
 	WriteDelete(key string)
@@ -57,13 +62,14 @@ func MustCreateNewFileTransLog(filename string) TransactionsLogger {
 	return tl
 }
 
-func (l *logger) Start(ctx context.Context) {
+func (l *logger) Start(ctx context.Context, s Store) {
 	events := make(chan event, 16)
 	l.events = events
 
 	errs := make(chan error, 1)
 	l.errs = errs
 
+	l.restore(s)
 	go func() {
 		for {
 			select {
@@ -80,6 +86,30 @@ func (l *logger) Start(ctx context.Context) {
 			}
 		}
 	}()
+}
+
+func (l *logger) restore(s Store) {
+	evs, errs := l.ReadEvents()
+
+	e := event{}
+	var err error
+	ok := true
+	for ok && err == nil {
+		select {
+		case err, ok = <-errs:
+		case e, ok = <-evs:
+			switch e.event {
+			case EventDelete:
+				err = s.Delete(e.key)
+			case EventPut:
+				err = s.Put(e.key, e.value)
+			}
+		}
+	}
+	if err != nil {
+		msg := fmt.Sprintf("didn't expect error: %v", err)
+		panic(msg)
+	}
 }
 
 func (l *logger) ReadEvents() (<-chan event, <-chan error) {

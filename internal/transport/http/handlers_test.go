@@ -41,8 +41,8 @@ func subTestTemplate(router http.Handler, c testCase) subtest {
 	}
 }
 
-func NewTestRouter(s store.Store) *chi.Mux {
-	hh := NewHandlersProvider(s)
+func NewTestRouter(s store.Store, tl tlog.TransactionsLogger) *chi.Mux {
+	hh := NewHandlersProvider(s, tl)
 	mux := chi.NewMux()
 	mux.Route("/v1", func(r chi.Router) {
 		r.Get("/", hh.HelloHandler)
@@ -58,11 +58,10 @@ func TestHandlers(t *testing.T) {
 
 	k, v := "test-key", "test-val"
 	tl := tlog.MustCreateNewFileTransLog(testFileName)
-	tl.Start(t.Context())
-	defer assert.NoError(t, tl.Close())
 
-	store := store.NewStore(tl)
-	router := NewTestRouter(store)
+	store := store.NewStore()
+	tl.Start(t.Context(), store)
+	router := NewTestRouter(store, tl)
 
 	testCases := []testCase{
 		{
@@ -103,6 +102,7 @@ func TestHandlers(t *testing.T) {
 	for _, c := range testCases {
 		t.Run(c.testName, subTestTemplate(router, c))
 	}
+	assert.NoError(t, tl.Close())
 }
 
 type mockStore struct {
@@ -125,14 +125,18 @@ func (m *mockStore) Delete(key string) error {
 
 func TestInternalErrWithMocks(t *testing.T) {
 	msg := "a simulated store error"
-	k, v := "any-key", "any-val"
 	mockErr := errors.New(msg)
-
-	mockRouter := NewTestRouter(&mockStore{
+	s := &mockStore{
 		errOnPut:    mockErr,
 		errOnGet:    mockErr,
 		errOnDelete: mockErr,
-	})
+	}
+
+	fileName := tutils.FileWithCleanUp(t, "test")
+	k, v := "any-key", "any-val"
+	tl := tlog.MustCreateNewFileTransLog(fileName)
+	tl.Start(t.Context(), s)
+	mockRouter := NewTestRouter(s, tl)
 
 	errorTestCases := []struct {
 		testName string
@@ -169,6 +173,7 @@ func TestInternalErrWithMocks(t *testing.T) {
 	for _, c := range errorTestCases {
 		t.Run(c.testName, subTestTemplate(mockRouter, c))
 	}
+	assert.NoError(t, tl.Close())
 }
 
 func makeReqBasedOnMethod(t testing.TB, method string, key, val string) *http.Request {

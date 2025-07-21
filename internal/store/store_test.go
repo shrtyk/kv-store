@@ -14,10 +14,9 @@ func TestStore(t *testing.T) {
 	k := "test-key"
 	v := "test-val"
 	tl := tlog.MustCreateNewFileTransLog(testFileName)
-	tl.Start(t.Context())
-	defer assert.NoError(t, tl.Close())
 
-	s := NewStore(tl)
+	s := NewStore()
+	tl.Start(t.Context(), s)
 
 	_, err := s.Get(k)
 	assert.ErrorIs(t, err, ErrorNoSuchKey)
@@ -38,4 +37,6 @@ func TestStore(t *testing.T) {
 	assert.NoError(t, err)
 	_, err = s.Get(k)
 	assert.ErrorIs(t, err, ErrorNoSuchKey)
+
+	assert.NoError(t, tl.Close())
 }

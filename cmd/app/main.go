@@ -8,8 +8,10 @@ import (
 
 func main() {
 	ap := app.NewApp()
-	tl := tlog.MustCreateNewFileTransLog("tlog")
-	st := store.NewStore(tl)
+	tl := tlog.MustCreateNewFileTransLog("transaction.log")
+	defer tl.Close()
+
+	st := store.NewStore()
 	ap.Init(
 		app.WithStore(st),
 		app.WithTransactionalLogger(tl),

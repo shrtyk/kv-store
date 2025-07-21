@@ -8,15 +8,18 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/shrtyk/kv-store/internal/store"
+	"github.com/shrtyk/kv-store/internal/tlog"
 )
 
 type handlersProvider struct {
 	store store.Store
+	tl    tlog.TransactionsLogger
 }
 
-func NewHandlersProvider(store store.Store) *handlersProvider {
+func NewHandlersProvider(store store.Store, tl tlog.TransactionsLogger) *handlersProvider {
 	return &handlersProvider{
 		store: store,
+		tl:    tl,
 	}
 }
 
@@ -33,6 +36,7 @@ func (h *handlersProvider) PutHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
+	h.tl.WritePut(key, string(val))
 	err = h.store.Put(key, string(val))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -62,6 +66,8 @@ func (h *handlersProvider) GetHandler(w http.ResponseWriter, r *http.Request) {
 
 func (h *handlersProvider) DeleteHandler(w http.ResponseWriter, r *http.Request) {
 	key := chi.URLParam(r, "key")
+
+	h.tl.WriteDelete(key)
 	err := h.store.Delete(key)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
