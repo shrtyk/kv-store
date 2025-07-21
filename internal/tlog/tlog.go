@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"os"
 )
 
@@ -25,9 +26,11 @@ type event struct {
 
 type TransactionsLogger interface {
 	Start(ctx context.Context)
+	Close() error
 	WritePut(key, val string)
 	WriteDelete(key string)
 	ReadEvents() (<-chan event, <-chan error)
+	Err() <-chan error
 }
 
 type logger struct {
@@ -46,6 +49,14 @@ func NewFileTransactionalLogger(filename string) (TransactionsLogger, error) {
 	return &logger{file: file}, nil
 }
 
+func MustCreateNewFileTransLog(filename string) TransactionsLogger {
+	tl, err := NewFileTransactionalLogger(filename)
+	if err != nil {
+		panic("failed to create new file transaction logger")
+	}
+	return tl
+}
+
 func (l *logger) Start(ctx context.Context) {
 	events := make(chan event, 16)
 	l.events = events
@@ -54,12 +65,18 @@ func (l *logger) Start(ctx context.Context) {
 	l.errs = errs
 
 	go func() {
-		for e := range events {
-			l.lastSeq++
-			_, err := fmt.Fprintf(l.file, "%d\t%d\t%s\t%s\n", l.lastSeq, e.event, e.key, e.value)
-			if err != nil {
-				errs <- err
+		for {
+			select {
+			case <-ctx.Done():
+				log.Println("Transactional logger shutting down...")
 				return
+			case e := <-events:
+				l.lastSeq++
+				_, err := fmt.Fprintf(l.file, "%d\t%d\t%s\t%s\n", l.lastSeq, e.event, e.key, e.value)
+				if err != nil {
+					errs <- err
+					return
+				}
 			}
 		}
 	}()
@@ -114,4 +131,8 @@ func (l *logger) WriteDelete(key string) {
 
 func (l *logger) Err() <-chan error {
 	return l.errs
+}
+
+func (l *logger) Close() error {
+	return l.file.Close()
 }

@@ -2,6 +2,7 @@ package tlog
 
 import (
 	"context"
+	"os"
 	"sync"
 	"testing"
 
@@ -9,17 +10,25 @@ import (
 )
 
 func TestTransactionFileLoggger(t *testing.T) {
+	testFileName := "test"
+	t.Cleanup(func() {
+		if err := os.Remove(testFileName); err != nil {
+			t.Errorf("failed to delete temprorary test file: %v", err)
+		}
+	})
+
 	k, v := "test-key", "test-val"
-	l, err := NewFileTransactionalLogger("test")
+	tl, err := NewFileTransactionalLogger(testFileName)
 	assert.NoError(t, err)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	l.Start(ctx)
-	l.WritePut(k, v)
-	l.WriteDelete(k)
+	tl.Start(ctx)
 
-	events, errs := l.ReadEvents()
+	tl.WritePut(k, v)
+	tl.WriteDelete(k)
+
+	events, errs := tl.ReadEvents()
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
@@ -35,6 +44,19 @@ func TestTransactionFileLoggger(t *testing.T) {
 			assert.NoError(t, err)
 		}
 	}()
+
 	cancel()
 	wg.Wait()
+
+	assert.NoError(t, tl.Close())
+}
+
+func FileWithCleanUp(t *testing.T, filename string) string {
+	t.Helper()
+	t.Cleanup(func() {
+		if err := os.Remove(filename); err != nil {
+			t.Errorf("failed to delete temprorary test file: %v", err)
+		}
+	})
+	return filename
 }

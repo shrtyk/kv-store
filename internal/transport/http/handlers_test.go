@@ -10,6 +10,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/shrtyk/kv-store/internal/store"
+	"github.com/shrtyk/kv-store/internal/tlog"
+	tutils "github.com/shrtyk/kv-store/pkg/testutils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -52,8 +54,15 @@ func NewTestRouter(s store.Store) *chi.Mux {
 }
 
 func TestHandlers(t *testing.T) {
+	testFileName := tutils.FileWithCleanUp(t, "test")
+
 	k, v := "test-key", "test-val"
-	router := NewTestRouter(store.NewStore())
+	tl := tlog.MustCreateNewFileTransLog(testFileName)
+	tl.Start(t.Context())
+	defer assert.NoError(t, tl.Close())
+
+	store := store.NewStore(tl)
+	router := NewTestRouter(store)
 
 	testCases := []testCase{
 		{

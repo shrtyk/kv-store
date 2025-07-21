@@ -10,13 +10,22 @@ import (
 	"time"
 
 	"github.com/shrtyk/kv-store/internal/store"
+	"github.com/shrtyk/kv-store/internal/tlog"
+	tutils "github.com/shrtyk/kv-store/pkg/testutils"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestServe(t *testing.T) {
+	testFileName := tutils.FileWithCleanUp(t, "test")
+
 	app := NewApp()
+	tl := tlog.MustCreateNewFileTransLog(testFileName)
+	defer tl.Close()
+
+	store := store.NewStore(tl)
 	app.Init(
-		WithStore(store.NewStore()),
+		WithStore(store),
+		WithTransactionalLogger(tl),
 	)
 
 	wg := &sync.WaitGroup{}

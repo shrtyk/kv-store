@@ -3,13 +3,21 @@ package store
 import (
 	"testing"
 
+	"github.com/shrtyk/kv-store/internal/tlog"
+	tutils "github.com/shrtyk/kv-store/pkg/testutils"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestStore(t *testing.T) {
+	testFileName := tutils.FileWithCleanUp(t, "test")
+
 	k := "test-key"
 	v := "test-val"
-	s := NewStore()
+	tl := tlog.MustCreateNewFileTransLog(testFileName)
+	tl.Start(t.Context())
+	defer assert.NoError(t, tl.Close())
+
+	s := NewStore(tl)
 
 	_, err := s.Get(k)
 	assert.ErrorIs(t, err, ErrorNoSuchKey)

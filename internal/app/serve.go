@@ -32,10 +32,12 @@ func (app *application) Serve(addr string) {
 		tCtx, tCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer tCancel()
 
+		log.Println("Got a signal to stop work. Executing graceful shutdown...")
 		errc <- s.Shutdown(tCtx)
 		close(errc)
 	}()
 
+	app.tl.Start(ctx)
 	log.Printf("Listening '%s'\n", addr)
 	if err := s.ListenAndServe(); err != http.ErrServerClosed && err != nil {
 		log.Printf("Error during server start: %v", err)
@@ -46,6 +48,7 @@ func (app *application) Serve(addr string) {
 		log.Printf("Error during server shutdown: %v", err)
 		return
 	}
+	log.Println("Server stoped")
 }
 
 type HandlersProvider interface {
