@@ -50,14 +50,21 @@ func (app *application) Serve(addr string) {
 
 type HandlersProvider interface {
 	HelloHandler(w http.ResponseWriter, r *http.Request)
+	PutHandler(w http.ResponseWriter, r *http.Request)
+	GetHandler(w http.ResponseWriter, r *http.Request)
+	DeleteHandler(w http.ResponseWriter, r *http.Request)
 }
 
 func NewRouter(store store.Store) *chi.Mux {
-	handlers := httphandlers.NewHandlersProvider(store)
+	var handlers HandlersProvider = httphandlers.NewHandlersProvider(store)
 
 	mux := chi.NewMux()
-	mux.Group(func(r chi.Router) {
-		r.HandleFunc("/", handlers.HelloHandler)
+	mux.Route("/v1", func(r chi.Router) {
+		r.Get("/", handlers.HelloHandler)
+
+		r.Put("/{key}", handlers.PutHandler)
+		r.Get("/{key}", handlers.GetHandler)
+		r.Delete("/{key}", handlers.DeleteHandler)
 	})
 
 	return mux

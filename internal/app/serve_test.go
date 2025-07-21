@@ -33,7 +33,7 @@ func TestServe(t *testing.T) {
 		r       *http.Response
 	)
 	for range retries {
-		r, err = http.Get("http://localhost:8081/")
+		r, err = http.Get("http://localhost:8081/v1")
 		if err == nil {
 			break
 		}
