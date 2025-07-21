@@ -1,8 +1,7 @@
-package server
+package app
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"net/http"
 	"os/signal"
@@ -10,12 +9,14 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/shrtyk/kv-store/internal/store"
+	httphandlers "github.com/shrtyk/kv-store/internal/transport/http"
 )
 
-func Serve(addr string, handlers http.Handler) {
+func (app *application) Serve(addr string) {
 	s := http.Server{
 		Addr:         addr,
-		Handler:      handlers,
+		Handler:      NewRouter(app.store),
 		IdleTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		ReadTimeout:  10 * time.Second,
@@ -47,16 +48,17 @@ func Serve(addr string, handlers http.Handler) {
 	}
 }
 
-func NewHandler() *chi.Mux {
-	mux := chi.NewMux()
+type HandlersProvider interface {
+	HelloHandler(w http.ResponseWriter, r *http.Request)
+}
 
+func NewRouter(store store.Store) *chi.Mux {
+	handlers := httphandlers.NewHandlersProvider(store)
+
+	mux := chi.NewMux()
 	mux.Group(func(r chi.Router) {
-		r.HandleFunc("/", helloHandler)
+		r.HandleFunc("/", handlers.HelloHandler)
 	})
 
 	return mux
-}
-
-func helloHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "Hello!")
 }

@@ -6,17 +6,11 @@ var (
 	ErrorNoSuchKey = errors.New("no such key")
 )
 
-type Store interface {
-	Put(key, value string) error
-	Get(key string) (string, error)
-	Delete(key string) error
-}
-
 type store struct {
 	storage map[string]string
 }
 
-func NewStore() Store {
+func NewStore() *store {
 	return &store{
 		storage: make(map[string]string),
 	}

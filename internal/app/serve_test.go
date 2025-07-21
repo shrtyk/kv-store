@@ -1,4 +1,4 @@
-package server
+package app
 
 import (
 	"io"
@@ -9,16 +9,22 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shrtyk/kv-store/internal/store"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestServe(t *testing.T) {
+	app := NewApp()
+	app.Init(
+		WithStore(store.NewStore()),
+	)
+
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 
 	go func() {
 		defer wg.Done()
-		Serve("localhost:8081", NewHandler())
+		app.Serve("localhost:8081")
 	}()
 
 	var (

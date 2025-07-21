@@ -1,9 +1,15 @@
 package main
 
 import (
-	"github.com/shrtyk/kv-store/internal/server"
+	"github.com/shrtyk/kv-store/internal/app"
+	"github.com/shrtyk/kv-store/internal/store"
 )
 
 func main() {
-	server.Serve(":16700", server.NewHandler())
+	ap := app.NewApp()
+	ap.Init(
+		app.WithStore(store.NewStore()),
+	)
+
+	ap.Serve(":16700")
 }

@@ -1,4 +1,4 @@
-package server
+package httphandlers
 
 import (
 	"io"
@@ -6,14 +6,18 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/shrtyk/kv-store/internal/store"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestHttpServer(t *testing.T) {
+func TestHandlers(t *testing.T) {
+	store := store.NewStore()
+	hh := NewHandlersProvider(store)
+
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 
-	helloHandler(rr, req)
+	hh.HelloHandler(rr, req)
 	assert.EqualValues(t, http.StatusOK, rr.Result().StatusCode)
 
 	b, err := io.ReadAll(rr.Body)
