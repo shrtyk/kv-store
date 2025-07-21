@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 )
 
 type eventType byte
@@ -39,6 +40,7 @@ type TransactionsLogger interface {
 }
 
 type logger struct {
+	wg      sync.WaitGroup
 	file    *os.File
 	events  chan<- event
 	errs    <-chan error
@@ -83,6 +85,7 @@ func (l *logger) Start(ctx context.Context, s Store) {
 					errs <- err
 					return
 				}
+				l.wg.Done()
 			}
 		}
 	}()
@@ -152,10 +155,12 @@ func (l *logger) ReadEvents() (<-chan event, <-chan error) {
 }
 
 func (l *logger) WritePut(key, val string) {
+	l.wg.Add(1)
 	l.events <- event{event: EventPut, key: key, value: val}
 }
 
 func (l *logger) WriteDelete(key string) {
+	l.wg.Add(1)
 	l.events <- event{event: EventDelete, key: key}
 }
 
@@ -164,5 +169,9 @@ func (l *logger) Err() <-chan error {
 }
 
 func (l *logger) Close() error {
+	l.wg.Wait()
+	if l.events != nil {
+		close(l.events)
+	}
 	return l.file.Close()
 }
