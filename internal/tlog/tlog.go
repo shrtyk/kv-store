@@ -54,7 +54,6 @@ func NewFileTransactionalLogger(filename string) (*logger, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open transaction log file: %w", err)
 	}
-
 	return &logger{file: file}, nil
 }
 
