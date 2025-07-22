@@ -11,7 +11,7 @@ import (
 )
 
 func TestStore(t *testing.T) {
-	testFileName := tutils.FileWithCleanUp(t, "test")
+	testFileName := tutils.FileNameWithCleanUp(t, "test")
 
 	k := "test-key"
 	v := "test-val"
@@ -49,7 +49,7 @@ func TestStore(t *testing.T) {
 }
 
 func TestLargeKeyAndVal(t *testing.T) {
-	testFileName := tutils.FileWithCleanUp(t, "test")
+	testFileName := tutils.FileNameWithCleanUp(t, "test")
 	tl := tlog.MustCreateNewFileTransLog(testFileName)
 
 	s := NewStore()

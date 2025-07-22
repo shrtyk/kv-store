@@ -54,7 +54,7 @@ func NewTestRouter(s store.Store, tl tlog.TransactionsLogger) *chi.Mux {
 }
 
 func TestHandlers(t *testing.T) {
-	testFileName := tutils.FileWithCleanUp(t, "test")
+	testFileName := tutils.FileNameWithCleanUp(t, "test")
 
 	k, v := "test-key", "test-val"
 	tl := tlog.MustCreateNewFileTransLog(testFileName)
@@ -132,7 +132,7 @@ func TestInternalErrWithMocks(t *testing.T) {
 		errOnDelete: mockErr,
 	}
 
-	fileName := tutils.FileWithCleanUp(t, "test")
+	fileName := tutils.FileNameWithCleanUp(t, "test")
 	k, v := "any-key", "any-val"
 	tl := tlog.MustCreateNewFileTransLog(fileName)
 	tl.Start(t.Context(), s)

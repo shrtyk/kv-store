@@ -16,7 +16,7 @@ import (
 )
 
 func TestServe(t *testing.T) {
-	testFileName := tutils.FileWithCleanUp(t, "test")
+	testFileName := tutils.FileNameWithCleanUp(t, "test")
 
 	app := NewApp()
 	tl := tlog.MustCreateNewFileTransLog(testFileName)

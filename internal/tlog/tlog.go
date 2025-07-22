@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"sync"
@@ -37,6 +38,7 @@ type TransactionsLogger interface {
 	WriteDelete(key string)
 	ReadEvents() (<-chan event, <-chan error)
 	Err() <-chan error
+	Wait()
 }
 
 type logger struct {
@@ -47,7 +49,7 @@ type logger struct {
 	lastSeq uint64
 }
 
-func NewFileTransactionalLogger(filename string) (TransactionsLogger, error) {
+func NewFileTransactionalLogger(filename string) (*logger, error) {
 	file, err := os.OpenFile(filename, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0755)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open transaction log file: %w", err)
@@ -56,7 +58,7 @@ func NewFileTransactionalLogger(filename string) (TransactionsLogger, error) {
 	return &logger{file: file}, nil
 }
 
-func MustCreateNewFileTransLog(filename string) TransactionsLogger {
+func MustCreateNewFileTransLog(filename string) *logger {
 	tl, err := NewFileTransactionalLogger(filename)
 	if err != nil {
 		panic("failed to create new file transaction logger")
@@ -109,7 +111,7 @@ func (l *logger) restore(s Store) {
 			}
 		}
 	}
-	if err != nil {
+	if err != nil && err != io.EOF {
 		msg := fmt.Sprintf("didn't expect error: %v", err)
 		panic(msg)
 	}
@@ -174,4 +176,8 @@ func (l *logger) Close() error {
 		close(l.events)
 	}
 	return l.file.Close()
+}
+
+func (l *logger) Wait() {
+	l.wg.Wait()
 }
