@@ -39,7 +39,14 @@ func (h *handlersProvider) PutHandler(w http.ResponseWriter, r *http.Request) {
 	h.tl.WritePut(key, string(val))
 	err = h.store.Put(key, string(val))
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		switch {
+		case errors.Is(err, store.ErrKeyTooLarge):
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		case errors.Is(err, store.ErrValueTooLarge):
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		default:
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
@@ -50,7 +57,7 @@ func (h *handlersProvider) GetHandler(w http.ResponseWriter, r *http.Request) {
 	val, err := h.store.Get(key)
 	if err != nil {
 		switch {
-		case errors.Is(err, store.ErrorNoSuchKey):
+		case errors.Is(err, store.ErrNoSuchKey):
 			http.NotFound(w, r)
 		default:
 			http.Error(w, err.Error(), http.StatusInternalServerError)

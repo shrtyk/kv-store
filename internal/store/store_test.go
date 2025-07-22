@@ -1,6 +1,8 @@
 package store
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"testing"
 
 	"github.com/shrtyk/kv-store/internal/tlog"
@@ -19,7 +21,7 @@ func TestStore(t *testing.T) {
 	tl.Start(t.Context(), s)
 
 	_, err := s.Get(k)
-	assert.ErrorIs(t, err, ErrorNoSuchKey)
+	assert.ErrorIs(t, err, ErrNoSuchKey)
 
 	err = s.Put(k, v)
 	assert.NoError(t, err)
@@ -36,7 +38,30 @@ func TestStore(t *testing.T) {
 	err = s.Delete(k)
 	assert.NoError(t, err)
 	_, err = s.Get(k)
-	assert.ErrorIs(t, err, ErrorNoSuchKey)
+	assert.ErrorIs(t, err, ErrNoSuchKey)
+
+	err = s.Put(largeString(), "val")
+	assert.ErrorIs(t, err, ErrKeyTooLarge)
+	err = s.Put("key", largeString())
+	assert.ErrorIs(t, err, ErrValueTooLarge)
 
 	assert.NoError(t, tl.Close())
+}
+
+func TestLargeKeyAndVal(t *testing.T) {
+	testFileName := tutils.FileWithCleanUp(t, "test")
+	tl := tlog.MustCreateNewFileTransLog(testFileName)
+
+	s := NewStore()
+	tl.Start(t.Context(), s)
+
+}
+
+func largeString() string {
+	b := make([]byte, maxKeySize+maxValSize)
+	_, err := rand.Read(b)
+	if err != nil {
+		panic(err)
+	}
+	return string(hex.EncodeToString(b))
 }

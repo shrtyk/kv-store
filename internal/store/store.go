@@ -6,7 +6,14 @@ import (
 )
 
 var (
-	ErrorNoSuchKey = errors.New("no such key")
+	ErrNoSuchKey     = errors.New("no such key")
+	ErrKeyTooLarge   = errors.New("key too large")
+	ErrValueTooLarge = errors.New("value too large")
+)
+
+const (
+	maxKeySize = 512
+	maxValSize = 512
 )
 
 type store struct {
@@ -21,6 +28,12 @@ func NewStore() *store {
 }
 
 func (s *store) Put(key, value string) error {
+	if len(key) > maxKeySize {
+		return ErrKeyTooLarge
+	}
+	if len(value) > maxValSize {
+		return ErrValueTooLarge
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -34,7 +47,7 @@ func (s *store) Get(key string) (string, error) {
 
 	val, ok := s.storage[key]
 	if !ok {
-		return "", ErrorNoSuchKey
+		return "", ErrNoSuchKey
 	}
 	return val, nil
 }
