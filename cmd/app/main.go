@@ -19,6 +19,7 @@ func main() {
 
 	ap := app.NewApp()
 	ap.Init(
+		app.WithCfg(cfg),
 		app.WithStore(st),
 		app.WithTransactionalLogger(tl),
 		app.WithLogger(logger),

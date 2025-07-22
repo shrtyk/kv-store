@@ -5,9 +5,11 @@ import (
 
 	"github.com/shrtyk/kv-store/internal/store"
 	"github.com/shrtyk/kv-store/internal/tlog"
+	"github.com/shrtyk/kv-store/pkg/cfg"
 )
 
 type application struct {
+	cfg    *cfg.AppConfig
 	store  store.Store
 	tl     tlog.TransactionsLogger
 	logger *slog.Logger
@@ -22,6 +24,12 @@ func NewApp() *application {
 func (app *application) Init(opts ...opt) {
 	for _, op := range opts {
 		op(app)
+	}
+}
+
+func WithCfg(cfg *cfg.AppConfig) opt {
+	return func(app *application) {
+		app.cfg = cfg
 	}
 }
 
