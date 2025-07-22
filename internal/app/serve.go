@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -23,6 +24,7 @@ func (app *application) Serve(addr string) {
 		ReadTimeout:  10 * time.Second,
 	}
 
+	var wg sync.WaitGroup
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
@@ -38,7 +40,7 @@ func (app *application) Serve(addr string) {
 		close(errc)
 	}()
 
-	app.tl.Start(ctx, app.store)
+	app.tl.Start(ctx, &wg, app.store)
 	log.Printf("Listening '%s'\n", addr)
 	if err := s.ListenAndServe(); err != http.ErrServerClosed && err != nil {
 		log.Printf("Error during server start: %v", err)
@@ -49,6 +51,7 @@ func (app *application) Serve(addr string) {
 		log.Printf("Error during server shutdown: %v", err)
 		return
 	}
+	wg.Wait()
 	log.Println("Server stoped")
 }
 

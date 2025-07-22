@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -60,7 +61,7 @@ func TestHandlers(t *testing.T) {
 	tl := tlog.MustCreateNewFileTransLog(testFileName)
 
 	store := store.NewStore()
-	tl.Start(t.Context(), store)
+	tl.Start(t.Context(), &sync.WaitGroup{}, store)
 	router := NewTestRouter(store, tl)
 
 	testCases := []testCase{
@@ -135,7 +136,7 @@ func TestInternalErrWithMocks(t *testing.T) {
 	fileName := tutils.FileNameWithCleanUp(t, "test")
 	k, v := "any-key", "any-val"
 	tl := tlog.MustCreateNewFileTransLog(fileName)
-	tl.Start(t.Context(), s)
+	tl.Start(t.Context(), &sync.WaitGroup{}, s)
 	mockRouter := NewTestRouter(s, tl)
 
 	errorTestCases := []struct {

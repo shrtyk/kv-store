@@ -2,6 +2,7 @@ package tlog
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	tutils "github.com/shrtyk/kv-store/pkg/testutils"
@@ -28,7 +29,7 @@ func TestTransactionFileLoggger(t *testing.T) {
 	assert.NoError(t, err)
 	defer tl.Close()
 
-	tl.Start(context.Background(), &mockstore{})
+	tl.Start(context.Background(), &sync.WaitGroup{}, &mockstore{})
 
 	tl.WritePut(k, v)
 	tl.WritePut(k, v)
@@ -43,7 +44,7 @@ func TestTransactionFileLoggger(t *testing.T) {
 
 	ntl := MustCreateNewFileTransLog(testFileName)
 	defer ntl.Close()
-	ntl.Start(context.Background(), &mockstore{})
+	ntl.Start(context.Background(), &sync.WaitGroup{}, &mockstore{})
 
 	events, errs = ntl.ReadEvents()
 	for range events {

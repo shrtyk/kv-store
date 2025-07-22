@@ -3,6 +3,7 @@ package store
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"sync"
 	"testing"
 
 	"github.com/shrtyk/kv-store/internal/tlog"
@@ -18,7 +19,7 @@ func TestStore(t *testing.T) {
 	tl := tlog.MustCreateNewFileTransLog(testFileName)
 
 	s := NewStore()
-	tl.Start(t.Context(), s)
+	tl.Start(t.Context(), &sync.WaitGroup{}, s)
 
 	_, err := s.Get(k)
 	assert.ErrorIs(t, err, ErrNoSuchKey)
@@ -53,7 +54,7 @@ func TestLargeKeyAndVal(t *testing.T) {
 	tl := tlog.MustCreateNewFileTransLog(testFileName)
 
 	s := NewStore()
-	tl.Start(t.Context(), s)
+	tl.Start(t.Context(), &sync.WaitGroup{}, s)
 
 }
 

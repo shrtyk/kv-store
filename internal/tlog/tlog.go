@@ -32,7 +32,7 @@ type Store interface {
 }
 
 type TransactionsLogger interface {
-	Start(ctx context.Context, s Store)
+	Start(ctx context.Context, wg *sync.WaitGroup, s Store)
 	Close() error
 	WritePut(key, val string)
 	WriteDelete(key string)
@@ -65,7 +65,7 @@ func MustCreateNewFileTransLog(filename string) *logger {
 	return tl
 }
 
-func (l *logger) Start(ctx context.Context, s Store) {
+func (l *logger) Start(ctx context.Context, wg *sync.WaitGroup, s Store) {
 	events := make(chan event, 16)
 	l.events = events
 
@@ -73,7 +73,9 @@ func (l *logger) Start(ctx context.Context, s Store) {
 	l.errs = errs
 
 	l.restore(s)
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		for {
 			select {
 			case <-ctx.Done():
