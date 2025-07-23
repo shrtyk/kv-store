@@ -80,7 +80,7 @@ func (l *logger) Start(ctx context.Context, wg *sync.WaitGroup, s Store) {
 		for {
 			select {
 			case <-ctx.Done():
-				l.log.Info("transactional logger shuttingg down")
+				l.log.Info("transactional logger shutting down")
 				return
 			case e := <-events:
 				l.lastSeq++

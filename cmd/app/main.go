@@ -15,7 +15,7 @@ func main() {
 	tl := tlog.MustCreateNewFileTransLog("transaction.log", logger)
 	defer tl.Close()
 
-	st := store.NewStore(logger)
+	st := store.NewStore(&cfg.Store, logger)
 
 	ap := app.NewApp()
 	ap.Init(

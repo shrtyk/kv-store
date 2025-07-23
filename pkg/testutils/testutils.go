@@ -5,6 +5,9 @@ import (
 	"log/slog"
 	"os"
 	"testing"
+	"time"
+
+	"github.com/shrtyk/kv-store/pkg/cfg"
 )
 
 func FileNameWithCleanUp(t *testing.T, filename string) string {
@@ -20,4 +23,13 @@ func FileNameWithCleanUp(t *testing.T, filename string) string {
 func NewMockLogger() (*slog.Logger, *bytes.Buffer) {
 	var buf bytes.Buffer
 	return slog.New(slog.NewTextHandler(&buf, nil)), &buf
+}
+
+func NewMockStoreCfg() *cfg.StoreCfg {
+	return &cfg.StoreCfg{
+		MaxKeySize: 100,
+		MaxValKey:  100,
+
+		TryRebuildIn: 10 * time.Hour,
+	}
 }

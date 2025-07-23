@@ -38,7 +38,7 @@ store_cfg:
 		setup          func(t *testing.T)
 		expectPanic    bool
 		expectedEnv    string
-		expectedMaxKey uint16
+		expectedMaxKey int
 	}{
 		{
 			name: "success with flag",

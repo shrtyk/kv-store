@@ -7,6 +7,8 @@ import (
 	"maps"
 	"sync"
 	"time"
+
+	"github.com/shrtyk/kv-store/pkg/cfg"
 )
 
 var (
@@ -15,35 +17,40 @@ var (
 	ErrValueTooLarge = errors.New("value too large")
 )
 
-const (
-	maxKeySize = 512
-	maxValSize = 512
-)
-
 type store struct {
-	mu      sync.RWMutex
-	storage map[string]string
-	logger  *slog.Logger
+	cfg       *cfg.StoreCfg
+	mu        sync.RWMutex
+	storage   map[string]string
+	logger    *slog.Logger
+	puts      int
+	deletions int
+	maxSize   int
 }
 
-func NewStore(l *slog.Logger) *store {
+func NewStore(cfg *cfg.StoreCfg, l *slog.Logger) *store {
 	return &store{
+		cfg:     cfg,
 		storage: make(map[string]string),
 		logger:  l,
 	}
 }
 
 func (s *store) Put(key, value string) error {
-	if len(key) > maxKeySize {
+	if len(key) > s.cfg.MaxKeySize {
 		return ErrKeyTooLarge
 	}
-	if len(value) > maxValSize {
+	if len(value) > s.cfg.MaxValKey {
 		return ErrValueTooLarge
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	_, ok := s.storage[key]
 	s.storage[key] = value
+	if !ok {
+		s.puts++
+	}
+	s.maxSize = max(s.maxSize, len(s.storage))
 	return nil
 }
 
@@ -62,13 +69,17 @@ func (s *store) Delete(key string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	_, ok := s.storage[key]
 	delete(s.storage, key)
+	if ok {
+		s.deletions++
+	}
 	return nil
 }
 
-func (s *store) StartMapRebuilder(ctx context.Context, wg *sync.WaitGroup, rebuildIn time.Duration) {
+func (s *store) StartMapRebuilder(ctx context.Context, wg *sync.WaitGroup) {
 	wg.Add(1)
-	t := time.NewTicker(rebuildIn)
+	t := time.NewTicker(s.cfg.TryRebuildIn)
 
 	go func() {
 		defer wg.Done()
@@ -78,15 +89,37 @@ func (s *store) StartMapRebuilder(ctx context.Context, wg *sync.WaitGroup, rebui
 				s.logger.Info("map rebuilder stopped")
 				return
 			case <-t.C:
-				newst := make(map[string]string)
-				s.mu.Lock()
+				s.mu.RLock()
+				deletions := s.deletions
+				maxSize := s.maxSize
+				puts := s.puts
+				curSize := len(s.storage)
+				s.mu.RUnlock()
 
-				maps.Copy(newst, s.storage)
-				s.storage = newst
-
-				s.mu.Unlock()
-				s.logger.Debug("internal map has been rebuild")
+				totalOps := puts + deletions
+				// Map will be rebuilt only if all conditions are true:
+				// 1. the number of deletions since the last rebuild has reached a minimum threshold
+				// 2. the current map size is significantly smaller than its peak size
+				// 3. a minimum number of total operations have occurred
+				if deletions >= s.cfg.MinDeletesTrigger &&
+					curSize <= int(float64(maxSize)*s.cfg.SparseRatio) &&
+					totalOps >= s.cfg.MinOpsBeforeRebuild {
+					s.rebuildInternalMap(curSize)
+					s.logger.Debug("internal map has been rebuilt")
+				}
 			}
 		}
 	}()
+}
+
+func (s *store) rebuildInternalMap(newSize int) {
+	newst := make(map[string]string, newSize)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	maps.Copy(newst, s.storage)
+	s.storage = newst
+	s.puts = 0
+	s.deletions = 0
+	s.maxSize = newSize
 }

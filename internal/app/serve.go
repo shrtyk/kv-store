@@ -43,7 +43,7 @@ func (app *application) Serve(addr string) {
 	}()
 
 	app.tl.Start(ctx, &wg, app.store)
-	app.store.StartMapRebuilder(ctx, &wg, app.cfg.Store.RebuildIn)
+	app.store.StartMapRebuilder(ctx, &wg)
 
 	app.logger.Info("listening", slog.String("addr", addr))
 	if err := s.ListenAndServe(); err != http.ErrServerClosed && err != nil {

@@ -11,22 +11,23 @@ import (
 
 	"github.com/shrtyk/kv-store/internal/store"
 	"github.com/shrtyk/kv-store/internal/tlog"
-	tutils "github.com/shrtyk/kv-store/pkg/testutils"
+	tu "github.com/shrtyk/kv-store/pkg/testutils"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestServe(t *testing.T) {
-	l, _ := tutils.NewMockLogger()
-	testFileName := tutils.FileNameWithCleanUp(t, "test")
+	l, _ := tu.NewMockLogger()
+	testFileName := tu.FileNameWithCleanUp(t, "test")
 
 	app := NewApp()
 	tl := tlog.MustCreateNewFileTransLog(testFileName, l)
 	defer tl.Close()
 
-	store := store.NewStore(l)
+	store := store.NewStore(tu.NewMockStoreCfg(), l)
 	app.Init(
 		WithStore(store),
 		WithTransactionalLogger(tl),
+		WithLogger(l),
 	)
 
 	wg := &sync.WaitGroup{}

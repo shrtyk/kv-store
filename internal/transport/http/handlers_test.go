@@ -9,12 +9,11 @@ import (
 	"net/http/httptest"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/shrtyk/kv-store/internal/store"
 	"github.com/shrtyk/kv-store/internal/tlog"
-	tutils "github.com/shrtyk/kv-store/pkg/testutils"
+	tu "github.com/shrtyk/kv-store/pkg/testutils"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -57,13 +56,13 @@ func NewTestRouter(s store.Store, tl tlog.TransactionsLogger) *chi.Mux {
 }
 
 func TestHandlers(t *testing.T) {
-	l, _ := tutils.NewMockLogger()
-	testFileName := tutils.FileNameWithCleanUp(t, "test")
+	l, _ := tu.NewMockLogger()
+	testFileName := tu.FileNameWithCleanUp(t, "test")
 
 	k, v := "test-key", "test-val"
 	tl := tlog.MustCreateNewFileTransLog(testFileName, l)
 
-	store := store.NewStore(l)
+	store := store.NewStore(tu.NewMockStoreCfg(), l)
 	tl.Start(t.Context(), &sync.WaitGroup{}, store)
 	router := NewTestRouter(store, tl)
 
@@ -115,7 +114,7 @@ type mockStore struct {
 	errOnDelete error
 }
 
-func (m *mockStore) StartMapRebuilder(ctx context.Context, wg *sync.WaitGroup, rebuildIn time.Duration) {
+func (m *mockStore) StartMapRebuilder(ctx context.Context, wg *sync.WaitGroup) {
 }
 
 func (m *mockStore) Put(key, value string) error {
@@ -131,7 +130,7 @@ func (m *mockStore) Delete(key string) error {
 }
 
 func TestInternalErrWithMocks(t *testing.T) {
-	l, _ := tutils.NewMockLogger()
+	l, _ := tu.NewMockLogger()
 	msg := "a simulated store error"
 	mockErr := errors.New(msg)
 	s := &mockStore{
@@ -140,7 +139,7 @@ func TestInternalErrWithMocks(t *testing.T) {
 		errOnDelete: mockErr,
 	}
 
-	fileName := tutils.FileNameWithCleanUp(t, "test")
+	fileName := tu.FileNameWithCleanUp(t, "test")
 	k, v := "any-key", "any-val"
 	tl := tlog.MustCreateNewFileTransLog(fileName, l)
 	tl.Start(t.Context(), &sync.WaitGroup{}, s)

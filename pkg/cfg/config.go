@@ -14,9 +14,13 @@ type AppConfig struct {
 }
 
 type StoreCfg struct {
-	RebuildIn  time.Duration `yaml:"rebuild_in"`
-	MaxKeySize uint16        `yaml:"max_key"`
-	MaxValKey  uint16        `yaml:"max_val"`
+	MaxKeySize int `yaml:"max_key"`
+	MaxValKey  int `yaml:"max_val"`
+
+	TryRebuildIn        time.Duration `yaml:"rebuild_in"`
+	MinDeletesTrigger   int           `yaml:"min_deletes"`
+	SparseRatio         float64       `yaml:"sparse_ratio"`
+	MinOpsBeforeRebuild int           `yaml:"min_ops_to_rebuild"`
 }
 
 func ReadConfig() *AppConfig {
