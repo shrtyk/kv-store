@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"log"
+	"log/slog"
 	"net/http"
 	"os/signal"
 	"sync"
@@ -13,6 +14,7 @@ import (
 	"github.com/shrtyk/kv-store/internal/store"
 	"github.com/shrtyk/kv-store/internal/tlog"
 	httphandlers "github.com/shrtyk/kv-store/internal/transport/http"
+	"github.com/shrtyk/kv-store/pkg/logger"
 )
 
 func (app *application) Serve(addr string) {
@@ -35,24 +37,26 @@ func (app *application) Serve(addr string) {
 		tCtx, tCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer tCancel()
 
-		log.Println("Got a signal to stop work. Executing graceful shutdown...")
+		app.logger.Info("got a signal to stop work. executing graceful shutdown")
 		errc <- s.Shutdown(tCtx)
 		close(errc)
 	}()
 
 	app.tl.Start(ctx, &wg, app.store)
-	log.Printf("Listening '%s'\n", addr)
+	app.store.StartMapRebuilder(ctx, &wg, app.cfg.Store.RebuildIn)
+
+	app.logger.Info("listening", slog.String("addr", addr))
 	if err := s.ListenAndServe(); err != http.ErrServerClosed && err != nil {
 		log.Printf("Error during server start: %v", err)
 		return
 	}
 
 	if err := <-errc; err != nil {
-		log.Printf("Error during server shutdown: %v", err)
+		app.logger.Error("failed server shutdown", logger.ErrorAttr(err))
 		return
 	}
 	wg.Wait()
-	log.Println("Server stoped")
+	app.logger.Info("server stopped")
 }
 
 type HandlersProvider interface {

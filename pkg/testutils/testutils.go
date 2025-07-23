@@ -1,6 +1,8 @@
 package tutils
 
 import (
+	"bytes"
+	"log/slog"
 	"os"
 	"testing"
 )
@@ -13,4 +15,9 @@ func FileNameWithCleanUp(t *testing.T, filename string) string {
 		}
 	})
 	return filename
+}
+
+func NewMockLogger() (*slog.Logger, *bytes.Buffer) {
+	var buf bytes.Buffer
+	return slog.New(slog.NewTextHandler(&buf, nil)), &buf
 }

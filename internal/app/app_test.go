@@ -5,17 +5,16 @@ import (
 
 	"github.com/shrtyk/kv-store/internal/store"
 	"github.com/shrtyk/kv-store/internal/tlog"
-	"github.com/shrtyk/kv-store/pkg/logger"
 	tutils "github.com/shrtyk/kv-store/pkg/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestApp(t *testing.T) {
+	l, _ := tutils.NewMockLogger()
 	logfile := tutils.FileNameWithCleanUp(t, "test")
-	s := store.NewStore()
-	tl := tlog.MustCreateNewFileTransLog(logfile)
-	l := logger.NewLogger("dev")
+	tl := tlog.MustCreateNewFileTransLog(logfile, l)
+	s := store.NewStore(l)
 
 	tapp := NewApp()
 	tapp.Init(

@@ -3,6 +3,7 @@ package cfg
 import (
 	"flag"
 	"os"
+	"time"
 
 	"github.com/ilyakaznacheev/cleanenv"
 )
@@ -13,8 +14,9 @@ type AppConfig struct {
 }
 
 type StoreCfg struct {
-	MaxKeySize uint16 `yaml:"max_key"`
-	MaxValKey  uint16 `yaml:"max_val"`
+	RebuildIn  time.Duration `yaml:"rebuild_in"`
+	MaxKeySize uint16        `yaml:"max_key"`
+	MaxValKey  uint16        `yaml:"max_val"`
 }
 
 func ReadConfig() *AppConfig {

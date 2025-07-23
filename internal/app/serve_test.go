@@ -16,13 +16,14 @@ import (
 )
 
 func TestServe(t *testing.T) {
+	l, _ := tutils.NewMockLogger()
 	testFileName := tutils.FileNameWithCleanUp(t, "test")
 
 	app := NewApp()
-	tl := tlog.MustCreateNewFileTransLog(testFileName)
+	tl := tlog.MustCreateNewFileTransLog(testFileName, l)
 	defer tl.Close()
 
-	store := store.NewStore()
+	store := store.NewStore(l)
 	app.Init(
 		WithStore(store),
 		WithTransactionalLogger(tl),

@@ -22,10 +22,11 @@ func (m *mockstore) Delete(key string) error {
 }
 
 func TestTransactionFileLoggger(t *testing.T) {
+	l, _ := tutils.NewMockLogger()
 	testFileName := tutils.FileNameWithCleanUp(t, "test")
 
 	k, v := "test-key", "test-val"
-	tl, err := NewFileTransactionalLogger(testFileName)
+	tl, err := NewFileTransactionalLogger(testFileName, l)
 	assert.NoError(t, err)
 	defer tl.Close()
 
@@ -42,7 +43,7 @@ func TestTransactionFileLoggger(t *testing.T) {
 	assert.NoError(t, <-errs)
 	tl.Wait()
 
-	ntl := MustCreateNewFileTransLog(testFileName)
+	ntl := MustCreateNewFileTransLog(testFileName, l)
 	defer ntl.Close()
 	ntl.Start(context.Background(), &sync.WaitGroup{}, &mockstore{})
 

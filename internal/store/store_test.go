@@ -12,13 +12,14 @@ import (
 )
 
 func TestStore(t *testing.T) {
+	l, _ := tutils.NewMockLogger()
 	testFileName := tutils.FileNameWithCleanUp(t, "test")
 
 	k := "test-key"
 	v := "test-val"
-	tl := tlog.MustCreateNewFileTransLog(testFileName)
+	tl := tlog.MustCreateNewFileTransLog(testFileName, l)
 
-	s := NewStore()
+	s := NewStore(l)
 	tl.Start(t.Context(), &sync.WaitGroup{}, s)
 
 	_, err := s.Get(k)
@@ -50,10 +51,11 @@ func TestStore(t *testing.T) {
 }
 
 func TestLargeKeyAndVal(t *testing.T) {
+	l, _ := tutils.NewMockLogger()
 	testFileName := tutils.FileNameWithCleanUp(t, "test")
-	tl := tlog.MustCreateNewFileTransLog(testFileName)
+	tl := tlog.MustCreateNewFileTransLog(testFileName, l)
 
-	s := NewStore()
+	s := NewStore(l)
 	tl.Start(t.Context(), &sync.WaitGroup{}, s)
 
 }

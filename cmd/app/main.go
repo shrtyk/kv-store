@@ -12,10 +12,10 @@ func main() {
 	cfg := cfg.ReadConfig()
 	logger := logger.NewLogger(cfg.Env)
 
-	tl := tlog.MustCreateNewFileTransLog("transaction.log")
+	tl := tlog.MustCreateNewFileTransLog("transaction.log", logger)
 	defer tl.Close()
 
-	st := store.NewStore()
+	st := store.NewStore(logger)
 
 	ap := app.NewApp()
 	ap.Init(

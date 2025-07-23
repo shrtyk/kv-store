@@ -1,8 +1,12 @@
 package store
 
 import (
+	"context"
 	"errors"
+	"log/slog"
+	"maps"
 	"sync"
+	"time"
 )
 
 var (
@@ -19,11 +23,13 @@ const (
 type store struct {
 	mu      sync.RWMutex
 	storage map[string]string
+	logger  *slog.Logger
 }
 
-func NewStore() *store {
+func NewStore(l *slog.Logger) *store {
 	return &store{
 		storage: make(map[string]string),
+		logger:  l,
 	}
 }
 
@@ -58,4 +64,29 @@ func (s *store) Delete(key string) error {
 
 	delete(s.storage, key)
 	return nil
+}
+
+func (s *store) StartMapRebuilder(ctx context.Context, wg *sync.WaitGroup, rebuildIn time.Duration) {
+	wg.Add(1)
+	t := time.NewTicker(rebuildIn)
+
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-ctx.Done():
+				s.logger.Info("map rebuilder stopped")
+				return
+			case <-t.C:
+				newst := make(map[string]string)
+				s.mu.Lock()
+
+				maps.Copy(newst, s.storage)
+				s.storage = newst
+
+				s.mu.Unlock()
+				s.logger.Debug("internal map has been rebuild")
+			}
+		}
+	}()
 }

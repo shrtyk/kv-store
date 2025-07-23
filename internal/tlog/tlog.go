@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 	"sync"
 )
@@ -43,22 +43,23 @@ type TransactionsLogger interface {
 
 type logger struct {
 	wg      sync.WaitGroup
+	log     *slog.Logger
 	file    *os.File
 	events  chan<- event
 	errs    <-chan error
 	lastSeq uint64
 }
 
-func NewFileTransactionalLogger(filename string) (*logger, error) {
+func NewFileTransactionalLogger(filename string, l *slog.Logger) (*logger, error) {
 	file, err := os.OpenFile(filename, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0755)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open transaction log file: %w", err)
 	}
-	return &logger{file: file}, nil
+	return &logger{file: file, log: l}, nil
 }
 
-func MustCreateNewFileTransLog(filename string) *logger {
-	tl, err := NewFileTransactionalLogger(filename)
+func MustCreateNewFileTransLog(filename string, l *slog.Logger) *logger {
+	tl, err := NewFileTransactionalLogger(filename, l)
 	if err != nil {
 		panic("failed to create new file transaction logger")
 	}
@@ -79,7 +80,7 @@ func (l *logger) Start(ctx context.Context, wg *sync.WaitGroup, s Store) {
 		for {
 			select {
 			case <-ctx.Done():
-				log.Println("Transactional logger shutting down...")
+				l.log.Info("transactional logger shuttingg down")
 				return
 			case e := <-events:
 				l.lastSeq++
