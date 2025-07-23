@@ -43,6 +43,7 @@ func (app *application) Serve(addr string) {
 	}()
 
 	app.tl.Start(ctx, &wg, app.store)
+	app.tl.Compact()
 	app.store.StartMapRebuilder(ctx, &wg)
 
 	app.logger.Info("listening", slog.String("addr", addr))

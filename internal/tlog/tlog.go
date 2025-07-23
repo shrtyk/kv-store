@@ -9,6 +9,10 @@ import (
 	"log/slog"
 	"os"
 	"sync"
+	"sync/atomic"
+	"time"
+
+	sl "github.com/shrtyk/kv-store/pkg/logger"
 )
 
 type eventType byte
@@ -33,20 +37,24 @@ type Store interface {
 
 type TransactionsLogger interface {
 	Start(ctx context.Context, wg *sync.WaitGroup, s Store)
-	Close() error
+	Compact()
 	WritePut(key, val string)
 	WriteDelete(key string)
 	ReadEvents() (<-chan event, <-chan error)
+	Close() error
 	Err() <-chan error
 	Wait()
 }
 
 type logger struct {
-	wg      sync.WaitGroup
+	fileMu       sync.Mutex
+	isCompacting atomic.Bool
+	wg           sync.WaitGroup
+
 	log     *slog.Logger
 	file    *os.File
-	events  chan<- event
-	errs    <-chan error
+	events  chan event
+	errs    chan error
 	lastSeq uint64
 }
 
@@ -67,11 +75,8 @@ func MustCreateNewFileTransLog(filename string, l *slog.Logger) *logger {
 }
 
 func (l *logger) Start(ctx context.Context, wg *sync.WaitGroup, s Store) {
-	events := make(chan event, 16)
-	l.events = events
-
-	errs := make(chan error, 1)
-	l.errs = errs
+	l.events = make(chan event, 16)
+	l.errs = make(chan error, 1)
 
 	l.restore(s)
 	wg.Add(1)
@@ -82,11 +87,11 @@ func (l *logger) Start(ctx context.Context, wg *sync.WaitGroup, s Store) {
 			case <-ctx.Done():
 				l.log.Info("transactional logger shutting down")
 				return
-			case e := <-events:
+			case e := <-l.events:
 				l.lastSeq++
 				_, err := fmt.Fprintf(l.file, "%d\t%d\t%s\t%s\n", l.lastSeq, e.event, e.key, e.value)
 				if err != nil {
-					errs <- err
+					l.errs <- err
 					return
 				}
 				l.wg.Done()
@@ -182,4 +187,137 @@ func (l *logger) Close() error {
 
 func (l *logger) Wait() {
 	l.wg.Wait()
+}
+
+func (l *logger) Compact() {
+	if !l.isCompacting.CompareAndSwap(false, true) {
+		l.log.Info("compcation is already in progress")
+		return
+	}
+
+	go l.runCompactionSupervisor()
+}
+
+func (l *logger) runCompactionSupervisor() {
+	defer l.isCompacting.Store(false)
+	l.log.Info("starting compaction supervisor")
+
+	for {
+		errs := make(chan error)
+
+		go l.runCompaction(errs)
+
+		err := <-errs
+		if err != nil {
+			l.log.Error("compaction attempt failed, will try again after a delay", sl.ErrorAttr(err))
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		l.log.Info("compaction completed, supervisor exiting")
+		return
+	}
+}
+
+func (l *logger) runCompaction(ech chan<- error) {
+	defer close(ech)
+
+	l.log.Info("transaction log compacter running")
+	l.fileMu.Lock()
+	curLogName := l.file.Name()
+	l.fileMu.Unlock()
+
+	tempLogName := fmt.Sprintf("%s.compacted", curLogName)
+	defer os.Remove(tempLogName)
+
+	newSeq, err := l.readAndCompact(curLogName, tempLogName)
+	if err != nil {
+		ech <- fmt.Errorf("compaction preparation failed: %w", err)
+		return
+	}
+
+	l.fileMu.Lock()
+	defer l.fileMu.Unlock()
+
+	// Wait all writings
+	l.Wait()
+
+	// Close old log file
+	if err = l.file.Close(); err != nil {
+		l.log.Error("failed to close old log file", sl.ErrorAttr(err))
+	}
+
+	// Swap new log and old log files
+	if err := os.Rename(tempLogName, curLogName); err != nil {
+		l.log.Error("failed to rename compacted log file", sl.ErrorAttr(err))
+		// Try to recover
+		curLogFile, rerr := os.OpenFile(curLogName, os.O_RDWR|os.O_APPEND, 0755)
+		if rerr != nil {
+			msg := fmt.Sprintf("couldn't rename log and couldn't reopen original log: %v", rerr)
+			panic(msg)
+		}
+		l.file = curLogFile
+		ech <- fmt.Errorf("failed to swap logs: %w", err)
+		return
+	}
+
+	newLogFile, err := os.OpenFile(curLogName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0755)
+	if err != nil {
+		// Critical failure
+		msg := fmt.Sprintf("compaction succeded but couldn't reopen new log file: %v", err)
+		panic(msg)
+	}
+
+	l.file = newLogFile
+	l.lastSeq = newSeq
+
+	l.log.Debug("log file compaction finished successfully")
+}
+
+func (l *logger) readAndCompact(sourceName, destName string) (newSeq uint64, err error) {
+	sourceFile, err := os.Open(sourceName)
+	if err != nil {
+		return 0, fmt.Errorf("failed to open source file: %w", err)
+	}
+	defer sourceFile.Close()
+
+	compactedMap := make(map[string]string)
+	s := bufio.NewScanner(sourceFile)
+	for s.Scan() {
+		var e event
+		_, err := fmt.Sscanf(s.Text(), "%d\t%d\t%s\t%s", &e.seq, &e.event, &e.key, &e.value)
+		if err != nil {
+			l.log.Warn(
+				"skipping corrupted log line",
+				slog.String("line", s.Text()),
+				sl.ErrorAttr(err),
+			)
+			continue
+		}
+		switch e.event {
+		case EventPut:
+			compactedMap[e.key] = e.value
+		case EventDelete:
+			delete(compactedMap, e.key)
+		}
+	}
+
+	if err = s.Err(); err != nil {
+		return 0, fmt.Errorf("failed to read source log: %w", err)
+	}
+
+	destFile, err := os.OpenFile(destName, os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return 0, fmt.Errorf("failed to creat compacted log: %w", err)
+	}
+	defer destFile.Close()
+
+	for k, v := range compactedMap {
+		newSeq++
+		_, err := fmt.Fprintf(destFile, "%d\t%d\t%s\t%s\n", newSeq, EventPut, k, v)
+		if err != nil {
+			return 0, fmt.Errorf("failed to write to compcated log: %w", err)
+		}
+	}
+	return
 }

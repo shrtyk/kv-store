@@ -78,9 +78,9 @@ func (s *store) Delete(key string) error {
 }
 
 func (s *store) StartMapRebuilder(ctx context.Context, wg *sync.WaitGroup) {
-	wg.Add(1)
 	t := time.NewTicker(s.cfg.TryRebuildIn)
 
+	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		for {
