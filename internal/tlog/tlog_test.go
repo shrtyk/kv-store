@@ -41,7 +41,7 @@ func TestTransactionFileLoggger(t *testing.T) {
 		assert.EqualValues(t, v, e.value)
 	}
 	assert.NoError(t, <-errs)
-	tl.Wait()
+	tl.WaitWritings()
 
 	ntl := MustCreateNewFileTransLog(testFileName, l)
 	defer ntl.Close()
@@ -54,6 +54,6 @@ func TestTransactionFileLoggger(t *testing.T) {
 
 	ntl.WritePut(k, v)
 	ntl.WritePut(k, v)
-	ntl.Wait()
+	ntl.WaitWritings()
 	assert.EqualValues(t, 4, ntl.lastSeq)
 }

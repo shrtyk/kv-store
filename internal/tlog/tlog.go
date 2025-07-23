@@ -38,18 +38,22 @@ type Store interface {
 type TransactionsLogger interface {
 	Start(ctx context.Context, wg *sync.WaitGroup, s Store)
 	Compact()
+
 	WritePut(key, val string)
 	WriteDelete(key string)
 	ReadEvents() (<-chan event, <-chan error)
-	Close() error
+
 	Err() <-chan error
-	Wait()
+	Close() error
+	WaitWritings()
+	WaitCompaction()
 }
 
 type logger struct {
 	fileMu       sync.Mutex
 	isCompacting atomic.Bool
-	wg           sync.WaitGroup
+	compactWg    sync.WaitGroup
+	writingsWg   sync.WaitGroup
 
 	log     *slog.Logger
 	file    *os.File
@@ -94,7 +98,7 @@ func (l *logger) Start(ctx context.Context, wg *sync.WaitGroup, s Store) {
 					l.errs <- err
 					return
 				}
-				l.wg.Done()
+				l.writingsWg.Done()
 			}
 		}
 	}()
@@ -164,12 +168,12 @@ func (l *logger) ReadEvents() (<-chan event, <-chan error) {
 }
 
 func (l *logger) WritePut(key, val string) {
-	l.wg.Add(1)
+	l.writingsWg.Add(1)
 	l.events <- event{event: EventPut, key: key, value: val}
 }
 
 func (l *logger) WriteDelete(key string) {
-	l.wg.Add(1)
+	l.writingsWg.Add(1)
 	l.events <- event{event: EventDelete, key: key}
 }
 
@@ -178,15 +182,15 @@ func (l *logger) Err() <-chan error {
 }
 
 func (l *logger) Close() error {
-	l.wg.Wait()
+	l.writingsWg.Wait()
 	if l.events != nil {
 		close(l.events)
 	}
 	return l.file.Close()
 }
 
-func (l *logger) Wait() {
-	l.wg.Wait()
+func (l *logger) WaitWritings() {
+	l.writingsWg.Wait()
 }
 
 func (l *logger) Compact() {
@@ -194,17 +198,19 @@ func (l *logger) Compact() {
 		l.log.Info("compcation is already in progress")
 		return
 	}
-
+	l.compactWg.Add(1)
 	go l.runCompactionSupervisor()
 }
 
 func (l *logger) runCompactionSupervisor() {
+	defer l.compactWg.Done()
 	defer l.isCompacting.Store(false)
 	l.log.Info("starting compaction supervisor")
 
 	for {
 		errs := make(chan error)
 
+		l.compactWg.Add(1)
 		go l.runCompaction(errs)
 
 		err := <-errs
@@ -220,6 +226,7 @@ func (l *logger) runCompactionSupervisor() {
 }
 
 func (l *logger) runCompaction(ech chan<- error) {
+	defer l.compactWg.Done()
 	defer close(ech)
 
 	l.log.Info("transaction log compacter running")
@@ -240,7 +247,7 @@ func (l *logger) runCompaction(ech chan<- error) {
 	defer l.fileMu.Unlock()
 
 	// Wait all writings
-	l.Wait()
+	l.WaitWritings()
 
 	// Close old log file
 	if err = l.file.Close(); err != nil {
@@ -308,7 +315,7 @@ func (l *logger) readAndCompact(sourceName, destName string) (newSeq uint64, err
 
 	destFile, err := os.OpenFile(destName, os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		return 0, fmt.Errorf("failed to creat compacted log: %w", err)
+		return 0, fmt.Errorf("failed to create compacted log: %w", err)
 	}
 	defer destFile.Close()
 
@@ -316,8 +323,12 @@ func (l *logger) readAndCompact(sourceName, destName string) (newSeq uint64, err
 		newSeq++
 		_, err := fmt.Fprintf(destFile, "%d\t%d\t%s\t%s\n", newSeq, EventPut, k, v)
 		if err != nil {
-			return 0, fmt.Errorf("failed to write to compcated log: %w", err)
+			return 0, fmt.Errorf("failed to write to compacted log: %w", err)
 		}
 	}
 	return
+}
+
+func (l *logger) WaitCompaction() {
+	l.compactWg.Wait()
 }
