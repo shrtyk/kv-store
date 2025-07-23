@@ -39,7 +39,7 @@ func (s *store) Put(key, value string) error {
 	if len(key) > s.cfg.MaxKeySize {
 		return ErrKeyTooLarge
 	}
-	if len(value) > s.cfg.MaxValKey {
+	if len(value) > s.cfg.MaxValSize {
 		return ErrValueTooLarge
 	}
 	s.mu.Lock()

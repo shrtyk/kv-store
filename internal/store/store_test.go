@@ -1,10 +1,13 @@
 package store
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"strconv"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/shrtyk/kv-store/internal/tlog"
 	"github.com/shrtyk/kv-store/pkg/cfg"
@@ -43,7 +46,7 @@ func TestStore(t *testing.T) {
 	_, err = s.Get(k)
 	assert.ErrorIs(t, err, ErrNoSuchKey)
 
-	lString := largeString(s.cfg.MaxKeySize, s.cfg.MaxValKey)
+	lString := largeString(s.cfg.MaxKeySize, s.cfg.MaxValSize)
 	err = s.Put(lString, "val")
 	assert.ErrorIs(t, err, ErrKeyTooLarge)
 	err = s.Put("key", lString)
@@ -52,14 +55,51 @@ func TestStore(t *testing.T) {
 	assert.NoError(t, tl.Close())
 }
 
-func TestLargeKeyAndVal(t *testing.T) {
+func TestBackgroundMapRebuilder(t *testing.T) {
 	l, _ := tu.NewMockLogger()
 	testFileName := tu.FileNameWithCleanUp(t, "test")
 	tl := tlog.MustCreateNewFileTransLog(testFileName, l)
 
-	s := NewStore(&cfg.StoreCfg{}, l)
-	tl.Start(t.Context(), &sync.WaitGroup{}, s)
+	s := NewStore(&cfg.StoreCfg{
+		MaxKeySize:          100,
+		MaxValSize:          100,
+		TryRebuildIn:        20 * time.Millisecond,
+		MinDeletesTrigger:   5,
+		SparseRatio:         0.5,
+		MinOpsBeforeRebuild: 10,
+	}, l)
 
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	var wg sync.WaitGroup
+	tl.Start(ctx, &wg, s)
+	s.StartMapRebuilder(ctx, &wg)
+
+	for i := range 10 {
+		s.Put(strconv.Itoa(i), strconv.Itoa(i))
+	}
+
+	for i := range 6 {
+		s.Delete(strconv.Itoa(i))
+	}
+
+	assert.Eventually(t, func() bool {
+		s.mu.RLock()
+		defer s.mu.RUnlock()
+		return s.puts == 0 && s.deletions == 0
+	},
+		500*time.Millisecond,
+		10*time.Millisecond,
+		"rebuilder didn't reset puts and deteions int time")
+
+	s.mu.RLock()
+	assert.EqualValues(t, 4, s.maxSize)
+	assert.EqualValues(t, 0, s.puts)
+	assert.EqualValues(t, 0, s.deletions)
+	s.mu.RUnlock()
+
+	cancel()
 }
 
 func largeString(maxKeySize, maxValSize int) string {

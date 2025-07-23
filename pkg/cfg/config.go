@@ -15,7 +15,7 @@ type AppConfig struct {
 
 type StoreCfg struct {
 	MaxKeySize int `yaml:"max_key"`
-	MaxValKey  int `yaml:"max_val"`
+	MaxValSize int `yaml:"max_val"`
 
 	TryRebuildIn        time.Duration `yaml:"rebuild_in"`
 	MinDeletesTrigger   int           `yaml:"min_deletes"`

@@ -28,7 +28,7 @@ func NewMockLogger() (*slog.Logger, *bytes.Buffer) {
 func NewMockStoreCfg() *cfg.StoreCfg {
 	return &cfg.StoreCfg{
 		MaxKeySize: 100,
-		MaxValKey:  100,
+		MaxValSize: 100,
 
 		TryRebuildIn: 10 * time.Hour,
 	}
