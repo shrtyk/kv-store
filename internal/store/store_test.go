@@ -17,11 +17,12 @@ import (
 
 func TestStore(t *testing.T) {
 	l, _ := tu.NewMockLogger()
-	testFileName := tu.FileNameWithCleanUp(t, "test")
+	lcfg := tu.NewMockTransLogCfg()
+	tu.FileCleanUp(t, lcfg.LogFileName)
 
 	k := "test-key"
 	v := "test-val"
-	tl := tlog.MustCreateNewFileTransLog(testFileName, l)
+	tl := tlog.MustCreateNewFileTransLog(lcfg, l)
 
 	s := NewStore(tu.NewMockStoreCfg(), l)
 	tl.Start(t.Context(), &sync.WaitGroup{}, s)
@@ -57,8 +58,10 @@ func TestStore(t *testing.T) {
 
 func TestBackgroundMapRebuilder(t *testing.T) {
 	l, _ := tu.NewMockLogger()
-	testFileName := tu.FileNameWithCleanUp(t, "test")
-	tl := tlog.MustCreateNewFileTransLog(testFileName, l)
+	lcfg := tu.NewMockTransLogCfg()
+	tu.FileCleanUp(t, lcfg.LogFileName)
+
+	tl := tlog.MustCreateNewFileTransLog(lcfg, l)
 
 	s := NewStore(&cfg.StoreCfg{
 		MaxKeySize:          100,

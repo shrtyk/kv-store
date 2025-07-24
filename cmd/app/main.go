@@ -12,7 +12,7 @@ func main() {
 	cfg := cfg.ReadConfig()
 	logger := logger.NewLogger(cfg.Env)
 
-	tl := tlog.MustCreateNewFileTransLog("transaction.log", logger)
+	tl := tlog.MustCreateNewFileTransLog(&cfg.TransLogger, logger)
 	defer tl.Close()
 
 	st := store.NewStore(&cfg.Store, logger)
@@ -26,5 +26,4 @@ func main() {
 	)
 
 	ap.Serve(":16700")
-
 }

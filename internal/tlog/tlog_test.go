@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/shrtyk/kv-store/internal/store"
-	tutils "github.com/shrtyk/kv-store/pkg/testutils"
+	tu "github.com/shrtyk/kv-store/pkg/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -26,11 +26,12 @@ func (m *mockstore) Delete(key string) error {
 }
 
 func TestTransactionFileLoggger(t *testing.T) {
-	l, _ := tutils.NewMockLogger()
-	testFileName := tutils.FileNameWithCleanUp(t, "test")
+	l, _ := tu.NewMockLogger()
+	lcfg := tu.NewMockTransLogCfg()
+	tu.FileCleanUp(t, lcfg.LogFileName)
 
 	k, v := "test-key", "test-val"
-	tl, err := NewFileTransactionalLogger(testFileName, l)
+	tl, err := NewFileTransactionalLogger(lcfg, l)
 	require.NoError(t, err)
 	defer tl.Close()
 
@@ -47,7 +48,7 @@ func TestTransactionFileLoggger(t *testing.T) {
 	assert.NoError(t, <-errs)
 	tl.WaitWritings()
 
-	ntl := MustCreateNewFileTransLog(testFileName, l)
+	ntl := MustCreateNewFileTransLog(lcfg, l)
 	defer ntl.Close()
 	ntl.Start(context.Background(), &sync.WaitGroup{}, &mockstore{})
 
@@ -63,11 +64,13 @@ func TestTransactionFileLoggger(t *testing.T) {
 }
 
 func TestTransactionLoggerCompacting(t *testing.T) {
-	l, _ := tutils.NewMockLogger()
-	testFileName := tutils.FileNameWithCleanUp(t, "test")
-	s := store.NewStore(tutils.NewMockStoreCfg(), l)
+	l, _ := tu.NewMockLogger()
+	lcfg := tu.NewMockTransLogCfg()
+	tu.FileCleanUp(t, lcfg.LogFileName)
 
-	tl, err := NewFileTransactionalLogger(testFileName, l)
+	s := store.NewStore(tu.NewMockStoreCfg(), l)
+
+	tl, err := NewFileTransactionalLogger(lcfg, l)
 	require.NoError(t, err)
 	defer tl.Close()
 

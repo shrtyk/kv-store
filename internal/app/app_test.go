@@ -13,8 +13,10 @@ import (
 
 func TestApp(t *testing.T) {
 	l, _ := tutils.NewMockLogger()
-	logfile := tutils.FileNameWithCleanUp(t, "test")
-	tl := tlog.MustCreateNewFileTransLog(logfile, l)
+	lcfg := tutils.NewMockTransLogCfg()
+	tutils.FileCleanUp(t, lcfg.LogFileName)
+
+	tl := tlog.MustCreateNewFileTransLog(lcfg, l)
 	s := store.NewStore(&cfg.StoreCfg{}, l)
 
 	tapp := NewApp()

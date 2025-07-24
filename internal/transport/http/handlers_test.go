@@ -57,10 +57,11 @@ func NewTestRouter(s store.Store, tl tlog.TransactionsLogger) *chi.Mux {
 
 func TestHandlers(t *testing.T) {
 	l, _ := tu.NewMockLogger()
-	testFileName := tu.FileNameWithCleanUp(t, "test")
+	lcfg := tu.NewMockTransLogCfg()
+	tu.FileCleanUp(t, lcfg.LogFileName)
 
 	k, v := "test-key", "test-val"
-	tl := tlog.MustCreateNewFileTransLog(testFileName, l)
+	tl := tlog.MustCreateNewFileTransLog(lcfg, l)
 
 	store := store.NewStore(tu.NewMockStoreCfg(), l)
 	tl.Start(t.Context(), &sync.WaitGroup{}, store)
@@ -131,6 +132,9 @@ func (m *mockStore) Delete(key string) error {
 
 func TestInternalErrWithMocks(t *testing.T) {
 	l, _ := tu.NewMockLogger()
+	lcfg := tu.NewMockTransLogCfg()
+	tu.FileCleanUp(t, lcfg.LogFileName)
+
 	msg := "a simulated store error"
 	mockErr := errors.New(msg)
 	s := &mockStore{
@@ -139,9 +143,8 @@ func TestInternalErrWithMocks(t *testing.T) {
 		errOnDelete: mockErr,
 	}
 
-	fileName := tu.FileNameWithCleanUp(t, "test")
 	k, v := "any-key", "any-val"
-	tl := tlog.MustCreateNewFileTransLog(fileName, l)
+	tl := tlog.MustCreateNewFileTransLog(lcfg, l)
 	tl.Start(t.Context(), &sync.WaitGroup{}, s)
 	mockRouter := NewTestRouter(s, tl)
 

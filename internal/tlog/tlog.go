@@ -14,6 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/shrtyk/kv-store/pkg/cfg"
 	sl "github.com/shrtyk/kv-store/pkg/logger"
 )
 
@@ -57,6 +58,7 @@ type logger struct {
 	compactWg    sync.WaitGroup
 	writingsWg   sync.WaitGroup
 
+	cfg     *cfg.TransLoggerCfg
 	log     *slog.Logger
 	file    *os.File
 	events  chan event
@@ -64,16 +66,21 @@ type logger struct {
 	lastSeq uint64
 }
 
-func NewFileTransactionalLogger(filename string, l *slog.Logger) (*logger, error) {
-	file, err := os.OpenFile(filename, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0755)
+func NewFileTransactionalLogger(cfg *cfg.TransLoggerCfg, l *slog.Logger) (*logger, error) {
+	file, err := os.OpenFile(cfg.LogFileName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0755)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open transaction log file: %w", err)
 	}
-	return &logger{file: file, log: l}, nil
+
+	return &logger{
+		cfg:  cfg,
+		file: file,
+		log:  l,
+	}, nil
 }
 
-func MustCreateNewFileTransLog(filename string, l *slog.Logger) *logger {
-	tl, err := NewFileTransactionalLogger(filename, l)
+func MustCreateNewFileTransLog(cfg *cfg.TransLoggerCfg, l *slog.Logger) *logger {
+	tl, err := NewFileTransactionalLogger(cfg, l)
 	if err != nil {
 		panic("failed to create new file transaction logger")
 	}
@@ -83,9 +90,11 @@ func MustCreateNewFileTransLog(filename string, l *slog.Logger) *logger {
 func (l *logger) Start(ctx context.Context, wg *sync.WaitGroup, s Store) {
 	l.events = make(chan event, 16)
 	l.errs = make(chan error, 1)
-
 	l.restore(s)
-	wg.Add(1)
+
+	wg.Add(2)
+	go l.startFsyncer(ctx, wg)
+
 	go func() {
 		defer wg.Done()
 		for {
@@ -343,4 +352,38 @@ func (l *logger) readAndCompact(sourceName, destName string) (newSeq uint64, err
 
 func (l *logger) WaitCompaction() {
 	l.compactWg.Wait()
+}
+
+func (l *logger) startFsyncer(ctx context.Context, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	t := time.NewTicker(l.cfg.FsyncIn)
+	for {
+		select {
+		case <-ctx.Done():
+			l.log.Info("fsyncer shutting down, starting last fsync")
+			for i := range l.cfg.RetriesAmount {
+				if err := l.file.Sync(); err != nil {
+					tryN := i + 1
+					msg := fmt.Sprintf("failed to make last fsync: %d", tryN)
+					l.log.Warn(msg, sl.ErrorAttr(err))
+					if tryN == l.cfg.RetriesAmount {
+						l.log.Error("failed to fsync before full stop. fsyncer stopped")
+						return
+					}
+					time.Sleep(l.cfg.RetryIn)
+					continue
+				}
+				l.log.Info("successfully completed fsync. fsyncer stopped")
+				break
+			}
+			return
+		case <-t.C:
+			l.fileMu.Lock()
+			if err := l.file.Sync(); err != nil {
+				l.log.Warn("failed to fsync log file", sl.ErrorAttr(err))
+			}
+			l.fileMu.Unlock()
+		}
+	}
 }

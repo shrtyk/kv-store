@@ -17,10 +17,11 @@ import (
 
 func TestServe(t *testing.T) {
 	l, _ := tu.NewMockLogger()
-	testFileName := tu.FileNameWithCleanUp(t, "test")
+	lcfg := tu.NewMockTransLogCfg()
+	tu.FileCleanUp(t, lcfg.LogFileName)
 
 	app := NewApp()
-	tl := tlog.MustCreateNewFileTransLog(testFileName, l)
+	tl := tlog.MustCreateNewFileTransLog(lcfg, l)
 	defer tl.Close()
 
 	store := store.NewStore(tu.NewMockStoreCfg(), l)

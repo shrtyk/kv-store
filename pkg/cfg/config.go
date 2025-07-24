@@ -9,8 +9,9 @@ import (
 )
 
 type AppConfig struct {
-	Env   string   `yaml:"env"`
-	Store StoreCfg `yaml:"store_cfg"`
+	Env         string         `yaml:"env"`
+	Store       StoreCfg       `yaml:"store_cfg"`
+	TransLogger TransLoggerCfg `yaml:"transactional_logger_cfg"`
 }
 
 type StoreCfg struct {
@@ -21,6 +22,13 @@ type StoreCfg struct {
 	MinDeletesTrigger   int           `yaml:"min_deletes"`
 	SparseRatio         float64       `yaml:"sparse_ratio"`
 	MinOpsBeforeRebuild int           `yaml:"min_ops_to_rebuild"`
+}
+
+type TransLoggerCfg struct {
+	LogFileName   string        `yaml:"log_file_name"`
+	FsyncIn       time.Duration `yaml:"fsync_in"`
+	RetriesAmount int           `yaml:"retries"`
+	RetryIn       time.Duration `yaml:"retry_in"`
 }
 
 func ReadConfig() *AppConfig {
