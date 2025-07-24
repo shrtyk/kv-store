@@ -2,11 +2,15 @@ package tlog
 
 import (
 	"context"
+	"strconv"
 	"sync"
 	"testing"
+	"time"
 
+	"github.com/shrtyk/kv-store/internal/store"
 	tutils "github.com/shrtyk/kv-store/pkg/testutils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type mockstore struct{}
@@ -27,7 +31,7 @@ func TestTransactionFileLoggger(t *testing.T) {
 
 	k, v := "test-key", "test-val"
 	tl, err := NewFileTransactionalLogger(testFileName, l)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer tl.Close()
 
 	tl.Start(context.Background(), &sync.WaitGroup{}, &mockstore{})
@@ -55,5 +59,38 @@ func TestTransactionFileLoggger(t *testing.T) {
 	ntl.WritePut(k, v)
 	ntl.WritePut(k, v)
 	ntl.WaitWritings()
-	assert.EqualValues(t, 4, ntl.lastSeq)
+	assert.EqualValues(t, uint64(4), ntl.lastSeq)
+}
+
+func TestTransactionLoggerCompacting(t *testing.T) {
+	l, _ := tutils.NewMockLogger()
+	testFileName := tutils.FileNameWithCleanUp(t, "test")
+	s := store.NewStore(tutils.NewMockStoreCfg(), l)
+
+	tl, err := NewFileTransactionalLogger(testFileName, l)
+	require.NoError(t, err)
+	defer tl.Close()
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	tl.Start(ctx, &sync.WaitGroup{}, s)
+
+	for i := range 10 {
+		tl.WritePut(strconv.Itoa(i), strconv.Itoa(i+1))
+	}
+
+	for i := range 5 {
+		tl.WriteDelete(strconv.Itoa(i))
+	}
+
+	tl.WaitWritings()
+
+	tl.Compact()
+
+	assert.Eventually(
+		t,
+		func() bool { return tl.lastSeq == 5 },
+		500*time.Millisecond,
+		20*time.Millisecond,
+	)
 }
