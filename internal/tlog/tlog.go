@@ -8,6 +8,8 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -292,15 +294,25 @@ func (l *logger) readAndCompact(sourceName, destName string) (newSeq uint64, err
 	s := bufio.NewScanner(sourceFile)
 	for s.Scan() {
 		var e event
-		_, err := fmt.Sscanf(s.Text(), "%d\t%d\t%s\t%s", &e.seq, &e.event, &e.key, &e.value)
-		if err != nil {
-			l.log.Warn(
-				"skipping corrupted log line",
-				slog.String("line", s.Text()),
-				sl.ErrorAttr(err),
-			)
+		line := s.Text()
+		parts := strings.Split(line, "\t")
+		if len(parts) < 3 {
+			l.log.Warn("not enough parts", slog.String("line", line))
 			continue
 		}
+
+		eType, err := strconv.Atoi(parts[1])
+		if err != nil {
+			l.log.Warn("invalid event type", slog.String("line", line), sl.ErrorAttr(err))
+			continue
+		}
+		e.event = eventType(eType)
+		e.key = parts[2]
+
+		if len(parts) > 3 {
+			e.value = parts[3]
+		}
+
 		switch e.event {
 		case EventPut:
 			compactedMap[e.key] = e.value
