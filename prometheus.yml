@@ -1,0 +1,7 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: "kv-store"
+    static_configs:
+      - targets: ["host.docker.internal:16700"]

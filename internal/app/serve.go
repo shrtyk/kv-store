@@ -13,24 +13,38 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shrtyk/kv-store/internal/store"
 	"github.com/shrtyk/kv-store/internal/tlog"
-	httphandlers "github.com/shrtyk/kv-store/internal/transport/http"
+	transport "github.com/shrtyk/kv-store/internal/transport/http"
 	"github.com/shrtyk/kv-store/pkg/logger"
+	"github.com/shrtyk/kv-store/pkg/otel"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 func (app *application) Serve(addr string) {
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
+	promHandler, shutdown, err := otel.OTelMetrics(ctx, otel.MustCreatePrometheusExporter())
+	if err != nil {
+		app.logger.Error("failed to setup OTel SDK", logger.ErrorAttr(err))
+		return
+	}
+	defer func() {
+		if err := shutdown(context.Background()); err != nil {
+			app.logger.Error("failed to shutdown OTel SDK", logger.ErrorAttr(err))
+		}
+	}()
+
 	s := http.Server{
 		Addr:         addr,
-		Handler:      NewRouter(app.store, app.tl),
+		Handler:      NewRouter(app.store, app.tl, promHandler),
 		IdleTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		ReadTimeout:  10 * time.Second,
 	}
 
 	var wg sync.WaitGroup
-	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer cancel()
 
-	errc := make(chan error, 1)
+	errCh := make(chan error, 1)
 	go func() {
 		<-ctx.Done()
 
@@ -38,8 +52,8 @@ func (app *application) Serve(addr string) {
 		defer tCancel()
 
 		app.logger.Info("got a signal to stop work. executing graceful shutdown")
-		errc <- s.Shutdown(tCtx)
-		close(errc)
+		errCh <- s.Shutdown(tCtx)
+		close(errCh)
 	}()
 
 	app.tl.Start(ctx, &wg, app.store)
@@ -47,15 +61,15 @@ func (app *application) Serve(addr string) {
 	app.store.StartMapRebuilder(ctx, &wg)
 
 	app.logger.Info("listening", slog.String("addr", addr))
-	if err := s.ListenAndServe(); err != http.ErrServerClosed && err != nil {
-		log.Printf("Error during server start: %v", err)
-		return
+	if err := s.ListenAndServe(); err != http.ErrServerClosed {
+		log.Fatalf("server failed to start: %v", err)
 	}
 
-	if err := <-errc; err != nil {
+	if err := <-errCh; err != nil {
 		app.logger.Error("failed server shutdown", logger.ErrorAttr(err))
 		return
 	}
+
 	wg.Wait()
 	app.logger.Info("server stopped")
 }
@@ -67,10 +81,16 @@ type HandlersProvider interface {
 	DeleteHandler(w http.ResponseWriter, r *http.Request)
 }
 
-func NewRouter(store store.Store, tl tlog.TransactionsLogger) *chi.Mux {
-	var handlers HandlersProvider = httphandlers.NewHandlersProvider(store, tl)
+func NewRouter(
+	store store.Store,
+	tl tlog.TransactionsLogger,
+	promHandler http.Handler,
+) *chi.Mux {
+	var handlers HandlersProvider = transport.NewHandlersProvider(store, tl)
 
 	mux := chi.NewMux()
+	mux.Use(otelhttp.NewMiddleware("http"))
+	mux.Handle("/metrics", promHandler)
 	mux.Route("/v1", func(r chi.Router) {
 		r.Get("/", handlers.HelloHandler)
 

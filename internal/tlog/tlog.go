@@ -362,21 +362,7 @@ func (l *logger) startFsyncer(ctx context.Context, wg *sync.WaitGroup) {
 		select {
 		case <-ctx.Done():
 			l.log.Info("fsyncer shutting down, starting last fsync")
-			for i := range l.cfg.RetriesAmount {
-				if err := l.file.Sync(); err != nil {
-					tryN := i + 1
-					msg := fmt.Sprintf("failed to make last fsync: %d", tryN)
-					l.log.Warn(msg, sl.ErrorAttr(err))
-					if tryN == l.cfg.RetriesAmount {
-						l.log.Error("failed to fsync before full stop. fsyncer stopped")
-						return
-					}
-					time.Sleep(l.cfg.RetryIn)
-					continue
-				}
-				l.log.Info("successfully completed fsync. fsyncer stopped")
-				break
-			}
+			l.lastFsyncWithRetries()
 			return
 		case <-t.C:
 			l.fileMu.Lock()
@@ -385,5 +371,23 @@ func (l *logger) startFsyncer(ctx context.Context, wg *sync.WaitGroup) {
 			}
 			l.fileMu.Unlock()
 		}
+	}
+}
+
+func (l *logger) lastFsyncWithRetries() {
+	for i := range l.cfg.RetriesAmount {
+		if err := l.file.Sync(); err != nil {
+			tryN := i + 1
+			msg := fmt.Sprintf("failed to make last fsync: %d", tryN)
+			l.log.Warn(msg, sl.ErrorAttr(err))
+			if tryN == l.cfg.RetriesAmount {
+				l.log.Error("failed to fsync before full stop. fsyncer stopped")
+				return
+			}
+			time.Sleep(l.cfg.RetryIn)
+			continue
+		}
+		l.log.Info("successfully completed fsync. fsyncer stopped")
+		break
 	}
 }
