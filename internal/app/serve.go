@@ -56,8 +56,10 @@ func (app *application) Serve(addr string) {
 		close(errCh)
 	}()
 
-	app.tl.Start(ctx, &wg, app.store)
 	app.tl.Compact()
+	app.tl.WaitCompaction()
+
+	app.tl.Start(ctx, &wg, app.store)
 	app.store.StartMapRebuilder(ctx, &wg)
 
 	app.logger.Info("listening", slog.String("addr", addr))

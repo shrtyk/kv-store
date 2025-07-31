@@ -3,7 +3,6 @@ package tlog
 import (
 	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -160,11 +159,6 @@ func (l *logger) ReadEvents() (<-chan event, <-chan error) {
 				return
 			}
 
-			if l.lastSeq >= e.seq {
-				outErr <- errors.New("transaction number out of sequence")
-				return
-			}
-
 			l.lastSeq = e.seq
 			outEvent <- e
 		}
@@ -206,7 +200,7 @@ func (l *logger) WaitWritings() {
 
 func (l *logger) Compact() {
 	if !l.isCompacting.CompareAndSwap(false, true) {
-		l.log.Info("compcation is already in progress")
+		l.log.Info("compaction is already in progress")
 		return
 	}
 	l.compactWg.Add(1)
