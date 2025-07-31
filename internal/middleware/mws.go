@@ -8,10 +8,6 @@ import (
 	metrics "github.com/shrtyk/kv-store/pkg/prometheus"
 )
 
-type Middlewares interface {
-	HttpMetrics(http.Handler) http.HandlerFunc
-}
-
 type mws struct {
 	metrics metrics.Metrics
 }

@@ -73,14 +73,18 @@ type HandlersProvider interface {
 	DeleteHandler(w http.ResponseWriter, r *http.Request)
 }
 
+type Middlewares interface {
+	HttpMetrics(http.Handler) http.Handler
+}
+
 func NewRouter(
 	store store.Store,
 	tl tlog.TransactionsLogger,
 	m metrics.Metrics,
 ) *chi.Mux {
 	var handlers HandlersProvider = transport.NewHandlersProvider(store, tl, m)
+	var mws Middlewares = middleware.NewMiddlewares(m)
 
-	mws := middleware.NewMiddlewares(m)
 	mux := chi.NewMux()
 
 	mux.Handle("/metrics", promhttp.Handler())
