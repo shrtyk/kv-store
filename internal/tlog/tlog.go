@@ -102,13 +102,13 @@ func (l *logger) Start(ctx context.Context, wg *sync.WaitGroup, s Store) {
 				l.log.Info("transactional logger shutting down")
 				return
 			case e := <-l.events:
-				l.lastSeq++
-				_, err := fmt.Fprintf(l.file, "%d\t%d\t%s\t%s\n", l.lastSeq, e.event, e.key, e.value)
-				if err != nil {
-					l.errs <- err
-					return
-				}
-				l.writingsWg.Done()
+				newSeq := atomic.AddUint64(&l.lastSeq, 1)
+                _, err := fmt.Fprintf(l.file, "%d\t%d\t%s\t%s\n", newSeq, e.event, e.key, e.value)
+                if err != nil {
+                    l.errs <- err
+                    return
+                }
+                l.writingsWg.Done()
 			}
 		}
 	}()
@@ -159,7 +159,7 @@ func (l *logger) ReadEvents() (<-chan event, <-chan error) {
 				return
 			}
 
-			l.lastSeq = e.seq
+			atomic.StoreUint64(&l.lastSeq, e.seq)
 			outEvent <- e
 		}
 
@@ -281,7 +281,7 @@ func (l *logger) runCompaction(ech chan<- error) {
 	}
 
 	l.file = newLogFile
-	l.lastSeq = newSeq
+	atomic.StoreUint64(&l.lastSeq, newSeq)
 
 	l.log.Debug("log file compaction finished successfully")
 }
