@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/shrtyk/kv-store/internal/store"
@@ -31,7 +32,7 @@ func (h *handlersProvider) HelloHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *handlersProvider) PutHandler(w http.ResponseWriter, r *http.Request) {
-	defer h.metrics.Put()
+	start := time.Now()
 
 	key := chi.URLParam(r, "key")
 	val, err := io.ReadAll(r.Body)
@@ -43,6 +44,9 @@ func (h *handlersProvider) PutHandler(w http.ResponseWriter, r *http.Request) {
 
 	h.tl.WritePut(key, string(val))
 	err = h.store.Put(key, string(val))
+
+	h.metrics.Put(key, time.Since(start).Seconds())
+
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrKeyTooLarge):
@@ -58,10 +62,13 @@ func (h *handlersProvider) PutHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handlersProvider) GetHandler(w http.ResponseWriter, r *http.Request) {
-	defer h.metrics.Get()
+	start := time.Now()
 
 	key := chi.URLParam(r, "key")
 	val, err := h.store.Get(key)
+
+	h.metrics.Get(key, time.Since(start).Seconds())
+
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrNoSuchKey):
@@ -79,11 +86,14 @@ func (h *handlersProvider) GetHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handlersProvider) DeleteHandler(w http.ResponseWriter, r *http.Request) {
-	defer h.metrics.Delete()
+	start := time.Now()
 
 	key := chi.URLParam(r, "key")
 	h.tl.WriteDelete(key)
 	err := h.store.Delete(key)
+
+	h.metrics.Delete(key, time.Since(start).Seconds())
+
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
