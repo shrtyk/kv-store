@@ -6,13 +6,15 @@ import (
 	"github.com/shrtyk/kv-store/internal/store"
 	"github.com/shrtyk/kv-store/internal/tlog"
 	"github.com/shrtyk/kv-store/pkg/cfg"
+	metrics "github.com/shrtyk/kv-store/pkg/prometheus"
 )
 
 type application struct {
-	cfg    *cfg.AppConfig
-	store  store.Store
-	tl     tlog.TransactionsLogger
-	logger *slog.Logger
+	cfg     *cfg.AppConfig
+	store   store.Store
+	tl      tlog.TransactionsLogger
+	logger  *slog.Logger
+	metrics metrics.Metrics
 }
 
 type opt func(*application)
@@ -48,5 +50,11 @@ func WithTransactionalLogger(tl tlog.TransactionsLogger) opt {
 func WithLogger(l *slog.Logger) opt {
 	return func(app *application) {
 		app.logger = l
+	}
+}
+
+func WithMetrics(m metrics.Metrics) opt {
+	return func(app *application) {
+		app.metrics = m
 	}
 }

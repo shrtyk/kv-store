@@ -9,17 +9,20 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shrtyk/kv-store/internal/store"
 	"github.com/shrtyk/kv-store/internal/tlog"
+	metrics "github.com/shrtyk/kv-store/pkg/prometheus"
 )
 
 type handlersProvider struct {
-	store store.Store
-	tl    tlog.TransactionsLogger
+	store   store.Store
+	tl      tlog.TransactionsLogger
+	metrics metrics.Metrics
 }
 
-func NewHandlersProvider(store store.Store, tl tlog.TransactionsLogger) *handlersProvider {
+func NewHandlersProvider(store store.Store, tl tlog.TransactionsLogger, m metrics.Metrics) *handlersProvider {
 	return &handlersProvider{
-		store: store,
-		tl:    tl,
+		store:   store,
+		tl:      tl,
+		metrics: m,
 	}
 }
 
@@ -28,6 +31,8 @@ func (h *handlersProvider) HelloHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *handlersProvider) PutHandler(w http.ResponseWriter, r *http.Request) {
+	defer h.metrics.Put()
+
 	key := chi.URLParam(r, "key")
 	val, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -53,6 +58,8 @@ func (h *handlersProvider) PutHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handlersProvider) GetHandler(w http.ResponseWriter, r *http.Request) {
+	defer h.metrics.Get()
+
 	key := chi.URLParam(r, "key")
 	val, err := h.store.Get(key)
 	if err != nil {
@@ -72,8 +79,9 @@ func (h *handlersProvider) GetHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handlersProvider) DeleteHandler(w http.ResponseWriter, r *http.Request) {
-	key := chi.URLParam(r, "key")
+	defer h.metrics.Delete()
 
+	key := chi.URLParam(r, "key")
 	h.tl.WriteDelete(key)
 	err := h.store.Delete(key)
 	if err != nil {

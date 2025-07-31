@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shrtyk/kv-store/internal/store"
 	"github.com/shrtyk/kv-store/internal/tlog"
+	metrics "github.com/shrtyk/kv-store/pkg/prometheus"
 	tu "github.com/shrtyk/kv-store/pkg/testutils"
 	"github.com/stretchr/testify/assert"
 )
@@ -44,7 +45,7 @@ func subTestTemplate(router http.Handler, c testCase) subtest {
 }
 
 func NewTestRouter(s store.Store, tl tlog.TransactionsLogger) *chi.Mux {
-	hh := NewHandlersProvider(s, tl)
+	hh := NewHandlersProvider(s, tl, metrics.NewMockMetrics())
 	mux := chi.NewMux()
 	mux.Route("/v1", func(r chi.Router) {
 		r.Get("/", hh.HelloHandler)

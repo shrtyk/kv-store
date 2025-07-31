@@ -6,6 +6,7 @@ import (
 	"github.com/shrtyk/kv-store/internal/tlog"
 	"github.com/shrtyk/kv-store/pkg/cfg"
 	"github.com/shrtyk/kv-store/pkg/logger"
+	metrics "github.com/shrtyk/kv-store/pkg/prometheus"
 )
 
 func main() {
@@ -15,6 +16,7 @@ func main() {
 	tl := tlog.MustCreateNewFileTransLog(&cfg.TransLogger, logger)
 	defer tl.Close()
 
+	m := metrics.NewPrometheusMetrics()
 	st := store.NewStore(&cfg.Store, logger)
 
 	ap := app.NewApp()
@@ -23,6 +25,7 @@ func main() {
 		app.WithStore(st),
 		app.WithTransactionalLogger(tl),
 		app.WithLogger(logger),
+		app.WithMetrics(m),
 	)
 
 	ap.Serve(":16700")

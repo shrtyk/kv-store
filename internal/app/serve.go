@@ -11,32 +11,21 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/shrtyk/kv-store/internal/store"
 	"github.com/shrtyk/kv-store/internal/tlog"
 	transport "github.com/shrtyk/kv-store/internal/transport/http"
 	"github.com/shrtyk/kv-store/pkg/logger"
-	"github.com/shrtyk/kv-store/pkg/otel"
-	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	metrics "github.com/shrtyk/kv-store/pkg/prometheus"
 )
 
 func (app *application) Serve(addr string) {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	promHandler, shutdown, err := otel.OTelMetrics(ctx, otel.MustCreatePrometheusExporter())
-	if err != nil {
-		app.logger.Error("failed to setup OTel SDK", logger.ErrorAttr(err))
-		return
-	}
-	defer func() {
-		if err := shutdown(context.Background()); err != nil {
-			app.logger.Error("failed to shutdown OTel SDK", logger.ErrorAttr(err))
-		}
-	}()
-
 	s := http.Server{
 		Addr:         addr,
-		Handler:      NewRouter(app.store, app.tl, promHandler),
+		Handler:      NewRouter(app.store, app.tl, app.metrics),
 		IdleTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		ReadTimeout:  10 * time.Second,
@@ -86,13 +75,12 @@ type HandlersProvider interface {
 func NewRouter(
 	store store.Store,
 	tl tlog.TransactionsLogger,
-	promHandler http.Handler,
+	m metrics.Metrics,
 ) *chi.Mux {
-	var handlers HandlersProvider = transport.NewHandlersProvider(store, tl)
+	var handlers HandlersProvider = transport.NewHandlersProvider(store, tl, m)
 
 	mux := chi.NewMux()
-	mux.Use(otelhttp.NewMiddleware("http"))
-	mux.Handle("/metrics", promHandler)
+	mux.Handle("/metrics", promhttp.Handler())
 	mux.Route("/v1", func(r chi.Router) {
 		r.Get("/", handlers.HelloHandler)
 

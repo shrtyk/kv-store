@@ -21,10 +21,11 @@ type store struct {
 	cfg       *cfg.StoreCfg
 	mu        sync.RWMutex
 	storage   map[string]string
-	logger    *slog.Logger
 	puts      int
 	deletions int
 	maxSize   int
+
+	logger *slog.Logger
 }
 
 func NewStore(cfg *cfg.StoreCfg, l *slog.Logger) *store {
