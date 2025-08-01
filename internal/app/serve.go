@@ -11,8 +11,9 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/shrtyk/kv-store/internal/middleware"
+	mw "github.com/shrtyk/kv-store/internal/middleware"
 	"github.com/shrtyk/kv-store/internal/store"
 	"github.com/shrtyk/kv-store/internal/tlog"
 	transport "github.com/shrtyk/kv-store/internal/transport/http"
@@ -83,13 +84,13 @@ func NewRouter(
 	m metrics.Metrics,
 ) *chi.Mux {
 	var handlers HandlersProvider = transport.NewHandlersProvider(store, tl, m)
-	var mws Middlewares = middleware.NewMiddlewares(m)
+	var mws Middlewares = mw.NewMiddlewares(m)
 
 	mux := chi.NewMux()
 
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.Route("/v1", func(r chi.Router) {
-		r.Use(mws.HttpMetrics)
+		r.Use(chimw.Recoverer, mws.HttpMetrics)
 
 		r.Get("/", handlers.HelloHandler)
 

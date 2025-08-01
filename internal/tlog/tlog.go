@@ -39,15 +39,15 @@ type Store interface {
 
 type TransactionsLogger interface {
 	Start(ctx context.Context, wg *sync.WaitGroup, s Store)
-	Compact()
-
 	WritePut(key, val string)
 	WriteDelete(key string)
-	ReadEvents() (<-chan event, <-chan error)
+	WaitWritings()
 
+	ReadEvents() (<-chan event, <-chan error)
 	Err() <-chan error
 	Close() error
-	WaitWritings()
+
+	Compact()
 	WaitCompaction()
 }
 
@@ -103,12 +103,12 @@ func (l *logger) Start(ctx context.Context, wg *sync.WaitGroup, s Store) {
 				return
 			case e := <-l.events:
 				newSeq := atomic.AddUint64(&l.lastSeq, 1)
-                _, err := fmt.Fprintf(l.file, "%d\t%d\t%s\t%s\n", newSeq, e.event, e.key, e.value)
-                if err != nil {
-                    l.errs <- err
-                    return
-                }
-                l.writingsWg.Done()
+				_, err := fmt.Fprintf(l.file, "%d\t%d\t%s\t%s\n", newSeq, e.event, e.key, e.value)
+				if err != nil {
+					l.errs <- err
+					return
+				}
+				l.writingsWg.Done()
 			}
 		}
 	}()
