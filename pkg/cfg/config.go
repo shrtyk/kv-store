@@ -27,6 +27,7 @@ type StoreCfg struct {
 
 type WalCfg struct {
 	LogFileName   string        `yaml:"log_file_name"`
+	MaxSizeBytes  int64         `yaml:"log_size_bytes"`
 	FsyncIn       time.Duration `yaml:"fsync_in"`
 	RetriesAmount int           `yaml:"retries"`
 	RetryIn       time.Duration `yaml:"retry_in"`

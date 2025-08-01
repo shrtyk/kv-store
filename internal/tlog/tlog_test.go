@@ -96,8 +96,8 @@ func TestTransactionLoggerCompacting(t *testing.T) {
 
 	tl.WaitWritings()
 
-	tl.Snapshot()
-	tl.WaitSnapshot()
+	tl.snapshot()
+	tl.waitSnapshot()
 
 	latestPath, latestSeq, err := snapshotter.FindLatest()
 	require.NoError(t, err, "expected to find a snapshot")

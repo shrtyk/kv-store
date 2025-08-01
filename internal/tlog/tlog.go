@@ -48,15 +48,12 @@ type TransactionsLogger interface {
 	ReadEvents() (<-chan event, <-chan error)
 	Err() <-chan error
 	Close() error
-
-	Snapshot()
-	WaitSnapshot()
 }
 
 type logger struct {
 	fileMu       sync.Mutex
 	isCompacting atomic.Bool
-	compactWg    sync.WaitGroup
+	snapshotWg   sync.WaitGroup
 	writingsWg   sync.WaitGroup
 
 	cfg         *cfg.WalCfg
@@ -114,6 +111,15 @@ func (l *logger) Start(ctx context.Context, wg *sync.WaitGroup, s Store) {
 					return
 				}
 				l.writingsWg.Done()
+
+				// Check the file size on each write to trigger snapshotting.
+				// IMPORTANT NOTE: This should be efficient enough as file metadata is typically cached by the OS, avoiding disk I/O.
+				stat, err := l.file.Stat()
+				if err != nil {
+					l.log.Warn("failed to get WAL file stats", sl.ErrorAttr(err))
+				} else if stat.Size() >= l.cfg.MaxSizeBytes {
+					l.snapshot()
+				}
 			}
 		}
 	}()
@@ -247,24 +253,24 @@ func (l *logger) WaitWritings() {
 	l.writingsWg.Wait()
 }
 
-func (l *logger) Snapshot() {
+func (l *logger) snapshot() {
 	if !l.isCompacting.CompareAndSwap(false, true) {
 		l.log.Info("compaction is already in progress")
 		return
 	}
-	l.compactWg.Add(1)
+	l.snapshotWg.Add(1)
 	go l.runSnapshotSupervisor()
 }
 
 func (l *logger) runSnapshotSupervisor() {
-	defer l.compactWg.Done()
+	defer l.snapshotWg.Done()
 	defer l.isCompacting.Store(false)
 	l.log.Info("starting snapshot supervisor")
 
 	for {
 		errCh := make(chan error, 1)
 
-		l.compactWg.Add(1)
+		l.snapshotWg.Add(1)
 		go l.runSnapshotCreation(errCh)
 
 		err := <-errCh
@@ -280,7 +286,7 @@ func (l *logger) runSnapshotSupervisor() {
 }
 
 func (l *logger) runSnapshotCreation(ech chan<- error) {
-	defer l.compactWg.Done()
+	defer l.snapshotWg.Done()
 	defer close(ech)
 
 	l.log.Info("transaction log compaction and snapshotting running")
@@ -382,8 +388,8 @@ func (l *logger) readForSnapshot(sourceName string) (lastSeq uint64, compactedMa
 	return lastSeq, compactedMap, nil
 }
 
-func (l *logger) WaitSnapshot() {
-	l.compactWg.Wait()
+func (l *logger) waitSnapshot() {
+	l.snapshotWg.Wait()
 }
 
 func (l *logger) startFsyncer(ctx context.Context, wg *sync.WaitGroup) {

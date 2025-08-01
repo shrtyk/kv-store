@@ -193,6 +193,7 @@ func TestInternalErrWithMocks(t *testing.T) {
 	for _, c := range errorTestCases {
 		t.Run(c.testName, subTestTemplate(mockRouter, c))
 	}
+	tl.WaitWritings()
 	assert.NoError(t, tl.Close())
 }
 

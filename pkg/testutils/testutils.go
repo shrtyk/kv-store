@@ -35,8 +35,9 @@ func NewMockStoreCfg() *cfg.StoreCfg {
 
 func NewMockTransLogCfg() *cfg.WalCfg {
 	return &cfg.WalCfg{
-		LogFileName: "test",
-		FsyncIn:     100 * time.Millisecond,
+		LogFileName:  "test",
+		MaxSizeBytes: 1048576,
+		FsyncIn:      100 * time.Millisecond,
 	}
 }
 

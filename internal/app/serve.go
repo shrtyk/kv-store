@@ -47,9 +47,6 @@ func (app *application) Serve(addr string) {
 		close(errCh)
 	}()
 
-	app.tl.Snapshot()
-	app.tl.WaitSnapshot()
-
 	app.tl.Start(ctx, &wg, app.store)
 	app.store.StartMapRebuilder(ctx, &wg)
 
