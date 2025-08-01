@@ -3,6 +3,7 @@ package tlog
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -13,6 +14,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/shrtyk/kv-store/internal/snapshot"
 	"github.com/shrtyk/kv-store/pkg/cfg"
 	sl "github.com/shrtyk/kv-store/pkg/logger"
 )
@@ -47,8 +49,8 @@ type TransactionsLogger interface {
 	Err() <-chan error
 	Close() error
 
-	Compact()
-	WaitCompaction()
+	Snapshot()
+	WaitSnapshot()
 }
 
 type logger struct {
@@ -57,31 +59,34 @@ type logger struct {
 	compactWg    sync.WaitGroup
 	writingsWg   sync.WaitGroup
 
-	cfg     *cfg.TransLoggerCfg
-	log     *slog.Logger
-	file    *os.File
-	events  chan event
-	errs    chan error
-	lastSeq uint64
+	cfg         *cfg.TransLoggerCfg
+	log         *slog.Logger
+	file        *os.File
+	events      chan event
+	errs        chan error
+	lastSeq     uint64
+	snapshotter snapshot.Snapshotter
 }
 
-func NewFileTransactionalLogger(cfg *cfg.TransLoggerCfg, l *slog.Logger) (*logger, error) {
+func NewFileTransactionalLogger(cfg *cfg.TransLoggerCfg, l *slog.Logger, s snapshot.Snapshotter) (*logger, error) {
 	file, err := os.OpenFile(cfg.LogFileName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0755)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open transaction log file: %w", err)
 	}
 
 	return &logger{
-		cfg:  cfg,
-		file: file,
-		log:  l,
+		cfg:         cfg,
+		file:        file,
+		log:         l,
+		snapshotter: s,
 	}, nil
 }
 
-func MustCreateNewFileTransLog(cfg *cfg.TransLoggerCfg, l *slog.Logger) *logger {
-	tl, err := NewFileTransactionalLogger(cfg, l)
+func MustCreateNewFileTransLog(cfg *cfg.TransLoggerCfg, l *slog.Logger, s snapshot.Snapshotter) *logger {
+	tl, err := NewFileTransactionalLogger(cfg, l, s)
 	if err != nil {
-		panic("failed to create new file transaction logger")
+		msg := fmt.Sprintf("failed to create new file transaction logger: %v", err)
+		panic(msg)
 	}
 	return tl
 }
@@ -115,26 +120,53 @@ func (l *logger) Start(ctx context.Context, wg *sync.WaitGroup, s Store) {
 }
 
 func (l *logger) restore(s Store) {
-	evs, errs := l.ReadEvents()
+	// Find and restore from the latest snapshot
+	snapshotPath, lastSeqFromSnapshot, err := l.snapshotter.FindLatest()
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		msg := fmt.Sprintf("failed to find latest snapshot: %v", err)
+		panic(msg)
+	}
 
+	if snapshotPath != "" {
+		l.log.Info("restoring from snapshot", slog.String("path", snapshotPath))
+		state, err := l.snapshotter.Restore(snapshotPath)
+		if err != nil {
+			msg := fmt.Sprintf("failed to restore snapshot: %v", err)
+			panic(msg)
+		}
+		for k, v := range state {
+			if err := s.Put(k, v); err != nil {
+				msg := fmt.Sprintf("failed to apply snapshot entry to store: %v", err)
+				panic(msg)
+			}
+		}
+		atomic.StoreUint64(&l.lastSeq, lastSeqFromSnapshot)
+	}
+
+	// Replay WAL entries created after the snapshot
+	evs, errs := l.ReadEvents()
 	e := event{}
-	var err error
 	ok := true
-	for ok && err == nil {
+	var replayErr error
+	for ok && replayErr == nil {
 		select {
-		case err, ok = <-errs:
+		case replayErr, ok = <-errs:
 		case e, ok = <-evs:
-			switch e.event {
-			case EventDelete:
-				err = s.Delete(e.key)
-			case EventPut:
-				err = s.Put(e.key, e.value)
+			if !ok {
+				continue
+			}
+			if e.seq > lastSeqFromSnapshot {
+				switch e.event {
+				case EventDelete:
+					replayErr = s.Delete(e.key)
+				case EventPut:
+					replayErr = s.Put(e.key, e.value)
+				}
 			}
 		}
 	}
-	if err != nil && err != io.EOF {
-		msg := fmt.Sprintf("didn't expect error: %v", err)
-		panic(msg)
+	if replayErr != nil && !errors.Is(replayErr, io.EOF) {
+		l.log.Error("unexpected error during WAL replay", sl.ErrorAttr(replayErr))
 	}
 }
 
@@ -153,10 +185,27 @@ func (l *logger) ReadEvents() (<-chan event, <-chan error) {
 
 		for scanner.Scan() {
 			line := scanner.Text()
-			_, err := fmt.Sscanf(line, "%d\t%d\t%s\t%s", &e.seq, &e.event, &e.key, &e.value)
+			parts := strings.Split(line, "\t")
+			if len(parts) < 3 {
+				l.log.Warn("not enough parts in log line", slog.String("line", line))
+				continue
+			}
+			seq, err := strconv.ParseUint(parts[0], 10, 64)
 			if err != nil {
 				outErr <- err
 				return
+			}
+			e.seq = seq
+
+			evt, err := strconv.Atoi(parts[1])
+			if err != nil {
+				outErr <- err
+				return
+			}
+			e.event = eventType(evt)
+			e.key = parts[2]
+			if len(parts) > 3 {
+				e.value = parts[3]
 			}
 
 			atomic.StoreUint64(&l.lastSeq, e.seq)
@@ -198,102 +247,94 @@ func (l *logger) WaitWritings() {
 	l.writingsWg.Wait()
 }
 
-func (l *logger) Compact() {
+func (l *logger) Snapshot() {
 	if !l.isCompacting.CompareAndSwap(false, true) {
 		l.log.Info("compaction is already in progress")
 		return
 	}
 	l.compactWg.Add(1)
-	go l.runCompactionSupervisor()
+	go l.runSnapshotSupervisor()
 }
 
-func (l *logger) runCompactionSupervisor() {
+func (l *logger) runSnapshotSupervisor() {
 	defer l.compactWg.Done()
 	defer l.isCompacting.Store(false)
-	l.log.Info("starting compaction supervisor")
+	l.log.Info("starting snapshot supervisor")
 
 	for {
-		errs := make(chan error)
+		errCh := make(chan error, 1)
 
 		l.compactWg.Add(1)
-		go l.runCompaction(errs)
+		go l.runSnapshotCreation(errCh)
 
-		err := <-errs
+		err := <-errCh
 		if err != nil {
-			l.log.Error("compaction attempt failed, will try again after a delay", sl.ErrorAttr(err))
+			l.log.Error("snapshot creation attempt failed, will try again after a delay", sl.ErrorAttr(err))
 			time.Sleep(5 * time.Second)
 			continue
 		}
 
-		l.log.Info("compaction completed, supervisor exiting")
+		l.log.Info("snapshot creation completed, supervisor exiting")
 		return
 	}
 }
 
-func (l *logger) runCompaction(ech chan<- error) {
+func (l *logger) runSnapshotCreation(ech chan<- error) {
 	defer l.compactWg.Done()
 	defer close(ech)
 
-	l.log.Info("transaction log compacter running")
+	l.log.Info("transaction log compaction and snapshotting running")
+
 	l.fileMu.Lock()
 	curLogName := l.file.Name()
-	l.fileMu.Unlock()
-
-	tempLogName := fmt.Sprintf("%s.compacted", curLogName)
-	defer os.Remove(tempLogName)
-
-	newSeq, err := l.readAndCompact(curLogName, tempLogName)
-	if err != nil {
-		ech <- fmt.Errorf("compaction preparation failed: %w", err)
+	if err := l.file.Close(); err != nil {
+		l.fileMu.Unlock()
+		ech <- fmt.Errorf("failed to close current log file for compaction: %w", err)
 		return
 	}
 
-	l.fileMu.Lock()
-	defer l.fileMu.Unlock()
-
-	// Wait all writings
-	l.WaitWritings()
-
-	// Close old log file
-	if err = l.file.Close(); err != nil {
-		l.log.Error("failed to close old log file", sl.ErrorAttr(err))
-	}
-
-	// Swap new log and old log files
-	if err := os.Rename(tempLogName, curLogName); err != nil {
-		l.log.Error("failed to rename compacted log file", sl.ErrorAttr(err))
-		// Try to recover
-		curLogFile, rerr := os.OpenFile(curLogName, os.O_RDWR|os.O_APPEND, 0755)
-		if rerr != nil {
-			msg := fmt.Sprintf("couldn't rename log and couldn't reopen original log: %v", rerr)
-			panic(msg)
-		}
-		l.file = curLogFile
-		ech <- fmt.Errorf("failed to swap logs: %w", err)
+	compactingLogName := fmt.Sprintf("%s.compacting", curLogName)
+	if err := os.Rename(curLogName, compactingLogName); err != nil {
+		l.fileMu.Unlock()
+		ech <- fmt.Errorf("failed to rename log file for compaction: %w", err)
+		l.file, _ = os.OpenFile(curLogName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0755)
 		return
 	}
 
 	newLogFile, err := os.OpenFile(curLogName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0755)
 	if err != nil {
-		// Critical failure
-		msg := fmt.Sprintf("compaction succeded but couldn't reopen new log file: %v", err)
-		panic(msg)
+		l.fileMu.Unlock()
+		panic(fmt.Sprintf("failed to create new log file after renaming: %v", err))
+	}
+	l.file = newLogFile
+	l.fileMu.Unlock()
+
+	lastSeq, compactedMap, err := l.readForSnapshot(compactingLogName)
+	if err != nil {
+		ech <- fmt.Errorf("compaction failed during reading log: %w", err)
+		return
 	}
 
-	l.file = newLogFile
-	atomic.StoreUint64(&l.lastSeq, newSeq)
+	if _, err := l.snapshotter.Create(compactedMap, lastSeq); err != nil {
+		ech <- fmt.Errorf("failed to create snapshot: %w", err)
+		return
+	}
 
-	l.log.Debug("log file compaction finished successfully")
+	if err := os.Remove(compactingLogName); err != nil {
+		l.log.Error("failed to remove compacted log file", sl.ErrorAttr(err))
+	}
+
+	l.log.Debug("log file compaction and snapshotting finished successfully")
 }
 
-func (l *logger) readAndCompact(sourceName, destName string) (newSeq uint64, err error) {
+func (l *logger) readForSnapshot(sourceName string) (lastSeq uint64, compactedMap map[string]string, err error) {
 	sourceFile, err := os.Open(sourceName)
 	if err != nil {
-		return 0, fmt.Errorf("failed to open source file: %w", err)
+		return 0, nil, fmt.Errorf("failed to open source file for compaction: %w", err)
 	}
 	defer sourceFile.Close()
 
-	compactedMap := make(map[string]string)
+	compactedMap = make(map[string]string)
 	s := bufio.NewScanner(sourceFile)
 	for s.Scan() {
 		var e event
@@ -302,6 +343,16 @@ func (l *logger) readAndCompact(sourceName, destName string) (newSeq uint64, err
 		if len(parts) < 3 {
 			l.log.Warn("not enough parts", slog.String("line", line))
 			continue
+		}
+
+		seq, err := strconv.ParseUint(parts[0], 10, 64)
+		if err != nil {
+			l.log.Warn("invalid sequence number", slog.String("line", line), sl.ErrorAttr(err))
+			continue
+		}
+		e.seq = seq
+		if e.seq > lastSeq {
+			lastSeq = e.seq
 		}
 
 		eType, err := strconv.Atoi(parts[1])
@@ -325,26 +376,13 @@ func (l *logger) readAndCompact(sourceName, destName string) (newSeq uint64, err
 	}
 
 	if err = s.Err(); err != nil {
-		return 0, fmt.Errorf("failed to read source log: %w", err)
+		return 0, nil, fmt.Errorf("failed to read source log for compaction: %w", err)
 	}
 
-	destFile, err := os.OpenFile(destName, os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return 0, fmt.Errorf("failed to create compacted log: %w", err)
-	}
-	defer destFile.Close()
-
-	for k, v := range compactedMap {
-		newSeq++
-		_, err := fmt.Fprintf(destFile, "%d\t%d\t%s\t%s\n", newSeq, EventPut, k, v)
-		if err != nil {
-			return 0, fmt.Errorf("failed to write to compacted log: %w", err)
-		}
-	}
-	return
+	return lastSeq, compactedMap, nil
 }
 
-func (l *logger) WaitCompaction() {
+func (l *logger) WaitSnapshot() {
 	l.compactWg.Wait()
 }
 
