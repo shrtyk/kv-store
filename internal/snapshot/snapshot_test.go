@@ -6,15 +6,18 @@ import (
 	"testing"
 	"time"
 
-	tutils "github.com/shrtyk/kv-store/pkg/testutils"
+	tu "github.com/shrtyk/kv-store/pkg/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestFileSnapshotter(t *testing.T) {
-	l, _ := tutils.NewMockLogger()
+	l, _ := tu.NewMockLogger()
 	tempDir := t.TempDir()
-	snapshotter := NewFileSnapshotter(tempDir, l)
+	snapshotter := NewFileSnapshotter(
+		tu.NewMockSnapshotsCfg(tempDir, 2),
+		l,
+	)
 
 	// No snapshots initially
 	_, _, err := snapshotter.FindLatest()
@@ -62,9 +65,12 @@ func TestFileSnapshotter(t *testing.T) {
 }
 
 func TestRestoreWithMalformedData(t *testing.T) {
-	l, _ := tutils.NewMockLogger()
+	l, _ := tu.NewMockLogger()
 	tempDir := t.TempDir()
-	snapshotter := NewFileSnapshotter(tempDir, l)
+	snapshotter := NewFileSnapshotter(
+		tu.NewMockSnapshotsCfg(tempDir, 2),
+		l,
+	)
 
 	// Create a snapshot file with some malformed lines
 	snapshotPath := filepath.Join(tempDir, "malformed.dat")
@@ -88,9 +94,12 @@ key3	value3`
 }
 
 func TestFindLatest_MultipleSnapshots(t *testing.T) {
-	l, _ := tutils.NewMockLogger()
+	l, _ := tu.NewMockLogger()
 	tempDir := t.TempDir()
-	snapshotter := NewFileSnapshotter(tempDir, l)
+	snapshotter := NewFileSnapshotter(
+		tu.NewMockSnapshotsCfg(tempDir, 2),
+		l,
+	)
 
 	_, err := snapshotter.Create(map[string]string{"key1": "value1"}, 10)
 	require.NoError(t, err)
@@ -113,4 +122,44 @@ func TestFindLatest_MultipleSnapshots(t *testing.T) {
 
 	assert.Equal(t, path3, latestPath)
 	assert.Equal(t, uint64(20), latestSeq)
+}
+
+func TestSnapshotClean(t *testing.T) {
+	l, _ := tu.NewMockLogger()
+	tempDir := t.TempDir()
+	snapshotter := NewFileSnapshotter(
+		tu.NewMockSnapshotsCfg(tempDir, 2),
+		l,
+	)
+
+	// snapshot 1
+	snap1Path, err := snapshotter.Create(map[string]string{"key1": "value1"}, 10)
+	require.NoError(t, err)
+	assert.FileExists(t, snap1Path)
+
+	time.Sleep(10 * time.Millisecond)
+
+	// snapshot 2
+	snap2Path, err := snapshotter.Create(map[string]string{"key2": "value2"}, 20)
+	require.NoError(t, err)
+	assert.FileExists(t, snap2Path)
+
+	files, _ := os.ReadDir(tempDir)
+	assert.Len(t, files, 2)
+
+	time.Sleep(10 * time.Millisecond)
+
+	// snapshot 3, which should trigger the rotation
+	snap3Path, err := snapshotter.Create(map[string]string{"key3": "value3"}, 30)
+	require.NoError(t, err)
+	assert.FileExists(t, snap3Path)
+
+	files, _ = os.ReadDir(tempDir)
+	assert.Len(t, files, 2, "expected only 2 snapshots after rotation")
+
+	_, err = os.Stat(snap1Path)
+	assert.True(t, os.IsNotExist(err), "expected the oldest snapshot to be deleted")
+
+	assert.FileExists(t, snap2Path)
+	assert.FileExists(t, snap3Path)
 }

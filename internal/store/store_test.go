@@ -23,7 +23,10 @@ func TestStore(t *testing.T) {
 
 	k := "test-key"
 	v := "test-val"
-	snapshotter := snapshot.NewFileSnapshotter(t.TempDir(), l)
+	snapshotter := snapshot.NewFileSnapshotter(
+		tu.NewMockSnapshotsCfg(t.TempDir(), 2),
+		l,
+	)
 	tl := tlog.MustCreateNewFileTransLog(lcfg, l, snapshotter)
 
 	s := NewStore(tu.NewMockStoreCfg(), l)
@@ -63,7 +66,10 @@ func TestBackgroundMapRebuilder(t *testing.T) {
 	lcfg := tu.NewMockTransLogCfg()
 	tu.FileCleanUp(t, lcfg.LogFileName)
 
-	snapshotter := snapshot.NewFileSnapshotter(t.TempDir(), l)
+	snapshotter := snapshot.NewFileSnapshotter(
+		tu.NewMockSnapshotsCfg(t.TempDir(), 2),
+		l,
+	)
 	tl := tlog.MustCreateNewFileTransLog(lcfg, l, snapshotter)
 
 	s := NewStore(&cfg.StoreCfg{

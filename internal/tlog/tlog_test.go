@@ -31,7 +31,10 @@ func TestTransactionFileLoggger(t *testing.T) {
 	tu.FileCleanUp(t, lcfg.LogFileName)
 
 	k, v := "test-key", "test-val"
-	snapshotter := snapshot.NewFileSnapshotter(t.TempDir(), l)
+	snapshotter := snapshot.NewFileSnapshotter(
+		tu.NewMockSnapshotsCfg(t.TempDir(), 2),
+		l,
+	)
 	tl, err := NewFileTransactionalLogger(lcfg, l, snapshotter)
 	require.NoError(t, err)
 	defer tl.Close()
@@ -71,8 +74,10 @@ func TestTransactionLoggerCompacting(t *testing.T) {
 
 	s := store.NewStore(tu.NewMockStoreCfg(), l)
 
-	tempDir := t.TempDir()
-	snapshotter := snapshot.NewFileSnapshotter(tempDir, l)
+	snapshotter := snapshot.NewFileSnapshotter(
+		tu.NewMockSnapshotsCfg(t.TempDir(), 2),
+		l,
+	)
 	tl, err := NewFileTransactionalLogger(lcfg, l, snapshotter)
 	require.NoError(t, err)
 	defer tl.Close()

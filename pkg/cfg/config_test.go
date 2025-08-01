@@ -15,7 +15,7 @@ func TestReadConfig(t *testing.T) {
 
 	validConfigContent := `
 env: "test"
-store_cfg:
+store:
   max_key: 1024
   max_val: 4096
 `

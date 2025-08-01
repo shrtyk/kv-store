@@ -59,7 +59,7 @@ type logger struct {
 	compactWg    sync.WaitGroup
 	writingsWg   sync.WaitGroup
 
-	cfg         *cfg.TransLoggerCfg
+	cfg         *cfg.WalCfg
 	log         *slog.Logger
 	file        *os.File
 	events      chan event
@@ -68,7 +68,7 @@ type logger struct {
 	snapshotter snapshot.Snapshotter
 }
 
-func NewFileTransactionalLogger(cfg *cfg.TransLoggerCfg, l *slog.Logger, s snapshot.Snapshotter) (*logger, error) {
+func NewFileTransactionalLogger(cfg *cfg.WalCfg, l *slog.Logger, s snapshot.Snapshotter) (*logger, error) {
 	file, err := os.OpenFile(cfg.LogFileName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0755)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open transaction log file: %w", err)
@@ -82,7 +82,7 @@ func NewFileTransactionalLogger(cfg *cfg.TransLoggerCfg, l *slog.Logger, s snaps
 	}, nil
 }
 
-func MustCreateNewFileTransLog(cfg *cfg.TransLoggerCfg, l *slog.Logger, s snapshot.Snapshotter) *logger {
+func MustCreateNewFileTransLog(cfg *cfg.WalCfg, l *slog.Logger, s snapshot.Snapshotter) *logger {
 	tl, err := NewFileTransactionalLogger(cfg, l, s)
 	if err != nil {
 		msg := fmt.Sprintf("failed to create new file transaction logger: %v", err)

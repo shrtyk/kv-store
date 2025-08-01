@@ -33,9 +33,16 @@ func NewMockStoreCfg() *cfg.StoreCfg {
 	}
 }
 
-func NewMockTransLogCfg() *cfg.TransLoggerCfg {
-	return &cfg.TransLoggerCfg{
+func NewMockTransLogCfg() *cfg.WalCfg {
+	return &cfg.WalCfg{
 		LogFileName: "test",
 		FsyncIn:     100 * time.Millisecond,
+	}
+}
+
+func NewMockSnapshotsCfg(dir string, maxSnapshots int) *cfg.SnapshotsCfg {
+	return &cfg.SnapshotsCfg{
+		SnapshotsDir:       dir,
+		MaxSnapshotsAmount: maxSnapshots,
 	}
 }

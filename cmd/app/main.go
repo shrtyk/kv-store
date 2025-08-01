@@ -14,9 +14,9 @@ func main() {
 	cfg := cfg.ReadConfig()
 	logger := logger.NewLogger(cfg.Env)
 
-	snapshotter := snapshot.NewFileSnapshotter(cfg.TransLogger.SnapshotsDir, logger)
+	snapshotter := snapshot.NewFileSnapshotter(&cfg.Snapshots, logger)
 
-	tl := tlog.MustCreateNewFileTransLog(&cfg.TransLogger, logger, snapshotter)
+	tl := tlog.MustCreateNewFileTransLog(&cfg.Wal, logger, snapshotter)
 	defer tl.Close()
 
 	m := metrics.NewPrometheusMetrics()

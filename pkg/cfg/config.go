@@ -9,9 +9,10 @@ import (
 )
 
 type AppConfig struct {
-	Env         string         `yaml:"env"`
-	Store       StoreCfg       `yaml:"store_cfg"`
-	TransLogger TransLoggerCfg `yaml:"transactional_logger_cfg"`
+	Env       string       `yaml:"env"`
+	Store     StoreCfg     `yaml:"store"`
+	Wal       WalCfg       `yaml:"transactional_logger"`
+	Snapshots SnapshotsCfg `yaml:"snapshots"`
 }
 
 type StoreCfg struct {
@@ -24,12 +25,16 @@ type StoreCfg struct {
 	MinOpsBeforeRebuild int           `yaml:"min_ops_to_rebuild"`
 }
 
-type TransLoggerCfg struct {
+type WalCfg struct {
 	LogFileName   string        `yaml:"log_file_name"`
-	SnapshotsDir  string        `yaml:"snapshots_dir"`
 	FsyncIn       time.Duration `yaml:"fsync_in"`
 	RetriesAmount int           `yaml:"retries"`
 	RetryIn       time.Duration `yaml:"retry_in"`
+}
+
+type SnapshotsCfg struct {
+	SnapshotsDir       string `yaml:"snapshots_dir"`
+	MaxSnapshotsAmount int    `yaml:"max_snapshots"`
 }
 
 func ReadConfig() *AppConfig {

@@ -19,7 +19,10 @@ func TestServe(t *testing.T) {
 	lcfg := tu.NewMockTransLogCfg()
 	tu.FileCleanUp(t, lcfg.LogFileName)
 
-	snapshotter := snapshot.NewFileSnapshotter(t.TempDir(), l)
+	snapshotter := snapshot.NewFileSnapshotter(
+		tu.NewMockSnapshotsCfg(t.TempDir(), 2),
+		l,
+	)
 	tl := tlog.MustCreateNewFileTransLog(lcfg, l, snapshotter)
 	defer tl.Close()
 

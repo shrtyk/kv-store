@@ -7,17 +7,20 @@ import (
 	"github.com/shrtyk/kv-store/internal/store"
 	"github.com/shrtyk/kv-store/internal/tlog"
 	"github.com/shrtyk/kv-store/pkg/cfg"
-	tutils "github.com/shrtyk/kv-store/pkg/testutils"
+	tu "github.com/shrtyk/kv-store/pkg/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestApp(t *testing.T) {
-	l, _ := tutils.NewMockLogger()
-	lcfg := tutils.NewMockTransLogCfg()
-	tutils.FileCleanUp(t, lcfg.LogFileName)
+	l, _ := tu.NewMockLogger()
+	lcfg := tu.NewMockTransLogCfg()
+	tu.FileCleanUp(t, lcfg.LogFileName)
 
-	snapshotter := snapshot.NewFileSnapshotter(t.TempDir(), l)
+	snapshotter := snapshot.NewFileSnapshotter(
+		tu.NewMockSnapshotsCfg(t.TempDir(), 2),
+		l,
+	)
 	tl := tlog.MustCreateNewFileTransLog(lcfg, l, snapshotter)
 	s := store.NewStore(&cfg.StoreCfg{}, l)
 

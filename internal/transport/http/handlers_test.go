@@ -63,7 +63,10 @@ func TestHandlers(t *testing.T) {
 	tu.FileCleanUp(t, lcfg.LogFileName)
 
 	k, v := "test-key", "test-val"
-	snapshotter := snapshot.NewFileSnapshotter(t.TempDir(), l)
+	snapshotter := snapshot.NewFileSnapshotter(
+		tu.NewMockSnapshotsCfg(t.TempDir(), 2),
+		l,
+	)
 	tl := tlog.MustCreateNewFileTransLog(lcfg, l, snapshotter)
 
 	store := store.NewStore(tu.NewMockStoreCfg(), l)
@@ -147,7 +150,10 @@ func TestInternalErrWithMocks(t *testing.T) {
 	}
 
 	k, v := "any-key", "any-val"
-	snapshotter := snapshot.NewFileSnapshotter(t.TempDir(), l)
+	snapshotter := snapshot.NewFileSnapshotter(
+		tu.NewMockSnapshotsCfg(t.TempDir(), 2),
+		l,
+	)
 	tl := tlog.MustCreateNewFileTransLog(lcfg, l, snapshotter)
 	tl.Start(t.Context(), &sync.WaitGroup{}, s)
 	mockRouter := NewTestRouter(s, tl)
