@@ -103,20 +103,28 @@ func (l *logger) Start(ctx context.Context, wg *sync.WaitGroup, s Store) {
 			case <-ctx.Done():
 				l.log.Info("transactional logger shutting down")
 				return
-			case e := <-l.events:
-				newSeq := atomic.AddUint64(&l.lastSeq, 1)
-				_, err := fmt.Fprintf(l.file, "%d\t%d\t%s\t%s\n", newSeq, e.event, e.key, e.value)
-				if err != nil {
-					l.errs <- err
+			case e, ok := <-l.events:
+				if !ok {
 					return
 				}
+				newSeq := atomic.AddUint64(&l.lastSeq, 1)
+
+				l.fileMu.Lock()
+				_, writeErr := fmt.Fprintf(l.file, "%d\t%d\t%s\t%s\n", newSeq, e.event, e.key, e.value)
+				stat, statErr := l.file.Stat()
+				l.fileMu.Unlock()
+
 				l.writingsWg.Done()
+				if writeErr != nil {
+					l.errs <- writeErr
+					return
+				}
 
 				// Check the file size on each write to trigger snapshotting.
+				//
 				// IMPORTANT NOTE: This should be efficient enough as file metadata is typically cached by the OS, avoiding disk I/O.
-				stat, err := l.file.Stat()
-				if err != nil {
-					l.log.Warn("failed to get WAL file stats", sl.ErrorAttr(err))
+				if statErr != nil {
+					l.log.Warn("failed to get WAL file stats", sl.ErrorAttr(statErr))
 				} else if stat.Size() >= l.cfg.MaxSizeBytes {
 					l.snapshot()
 				}
