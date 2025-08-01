@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/shrtyk/kv-store/internal/snapshot"
 	"github.com/shrtyk/kv-store/internal/store"
 	"github.com/shrtyk/kv-store/internal/tlog"
 	metrics "github.com/shrtyk/kv-store/pkg/prometheus"
@@ -18,7 +19,8 @@ func TestServe(t *testing.T) {
 	lcfg := tu.NewMockTransLogCfg()
 	tu.FileCleanUp(t, lcfg.LogFileName)
 
-	tl := tlog.MustCreateNewFileTransLog(lcfg, l)
+	snapshotter := snapshot.NewFileSnapshotter(t.TempDir(), l)
+	tl := tlog.MustCreateNewFileTransLog(lcfg, l, snapshotter)
 	defer tl.Close()
 
 	store := store.NewStore(tu.NewMockStoreCfg(), l)

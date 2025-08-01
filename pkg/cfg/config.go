@@ -26,6 +26,7 @@ type StoreCfg struct {
 
 type TransLoggerCfg struct {
 	LogFileName   string        `yaml:"log_file_name"`
+	SnapshotsDir  string        `yaml:"snapshots_dir"`
 	FsyncIn       time.Duration `yaml:"fsync_in"`
 	RetriesAmount int           `yaml:"retries"`
 	RetryIn       time.Duration `yaml:"retry_in"`

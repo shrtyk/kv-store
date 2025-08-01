@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shrtyk/kv-store/internal/snapshot"
 	"github.com/shrtyk/kv-store/internal/tlog"
 	"github.com/shrtyk/kv-store/pkg/cfg"
 	tu "github.com/shrtyk/kv-store/pkg/testutils"
@@ -22,7 +23,8 @@ func TestStore(t *testing.T) {
 
 	k := "test-key"
 	v := "test-val"
-	tl := tlog.MustCreateNewFileTransLog(lcfg, l)
+	snapshotter := snapshot.NewFileSnapshotter(t.TempDir(), l)
+	tl := tlog.MustCreateNewFileTransLog(lcfg, l, snapshotter)
 
 	s := NewStore(tu.NewMockStoreCfg(), l)
 	tl.Start(t.Context(), &sync.WaitGroup{}, s)
@@ -61,7 +63,8 @@ func TestBackgroundMapRebuilder(t *testing.T) {
 	lcfg := tu.NewMockTransLogCfg()
 	tu.FileCleanUp(t, lcfg.LogFileName)
 
-	tl := tlog.MustCreateNewFileTransLog(lcfg, l)
+	snapshotter := snapshot.NewFileSnapshotter(t.TempDir(), l)
+	tl := tlog.MustCreateNewFileTransLog(lcfg, l, snapshotter)
 
 	s := NewStore(&cfg.StoreCfg{
 		MaxKeySize:          100,

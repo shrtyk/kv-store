@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/shrtyk/kv-store/internal/app"
+	"github.com/shrtyk/kv-store/internal/snapshot"
 	"github.com/shrtyk/kv-store/internal/store"
 	"github.com/shrtyk/kv-store/internal/tlog"
 	"github.com/shrtyk/kv-store/pkg/cfg"
@@ -13,7 +14,9 @@ func main() {
 	cfg := cfg.ReadConfig()
 	logger := logger.NewLogger(cfg.Env)
 
-	tl := tlog.MustCreateNewFileTransLog(&cfg.TransLogger, logger)
+	snapshotter := snapshot.NewFileSnapshotter(cfg.TransLogger.SnapshotsDir, logger)
+
+	tl := tlog.MustCreateNewFileTransLog(&cfg.TransLogger, logger, snapshotter)
 	defer tl.Close()
 
 	m := metrics.NewPrometheusMetrics()

@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/shrtyk/kv-store/internal/snapshot"
 	"github.com/shrtyk/kv-store/internal/store"
 	"github.com/shrtyk/kv-store/internal/tlog"
 	metrics "github.com/shrtyk/kv-store/pkg/prometheus"
@@ -62,7 +63,8 @@ func TestHandlers(t *testing.T) {
 	tu.FileCleanUp(t, lcfg.LogFileName)
 
 	k, v := "test-key", "test-val"
-	tl := tlog.MustCreateNewFileTransLog(lcfg, l)
+	snapshotter := snapshot.NewFileSnapshotter(t.TempDir(), l)
+	tl := tlog.MustCreateNewFileTransLog(lcfg, l, snapshotter)
 
 	store := store.NewStore(tu.NewMockStoreCfg(), l)
 	tl.Start(t.Context(), &sync.WaitGroup{}, store)
@@ -145,7 +147,8 @@ func TestInternalErrWithMocks(t *testing.T) {
 	}
 
 	k, v := "any-key", "any-val"
-	tl := tlog.MustCreateNewFileTransLog(lcfg, l)
+	snapshotter := snapshot.NewFileSnapshotter(t.TempDir(), l)
+	tl := tlog.MustCreateNewFileTransLog(lcfg, l, snapshotter)
 	tl.Start(t.Context(), &sync.WaitGroup{}, s)
 	mockRouter := NewTestRouter(s, tl)
 

@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"sync"
 	"testing"
-	"time"
 
+	"github.com/shrtyk/kv-store/internal/snapshot"
 	"github.com/shrtyk/kv-store/internal/store"
 	tu "github.com/shrtyk/kv-store/pkg/testutils"
 	"github.com/stretchr/testify/assert"
@@ -31,7 +31,8 @@ func TestTransactionFileLoggger(t *testing.T) {
 	tu.FileCleanUp(t, lcfg.LogFileName)
 
 	k, v := "test-key", "test-val"
-	tl, err := NewFileTransactionalLogger(lcfg, l)
+	snapshotter := snapshot.NewFileSnapshotter(t.TempDir(), l)
+	tl, err := NewFileTransactionalLogger(lcfg, l, snapshotter)
 	require.NoError(t, err)
 	defer tl.Close()
 
@@ -48,7 +49,7 @@ func TestTransactionFileLoggger(t *testing.T) {
 	assert.NoError(t, <-errs)
 	tl.WaitWritings()
 
-	ntl := MustCreateNewFileTransLog(lcfg, l)
+	ntl := MustCreateNewFileTransLog(lcfg, l, snapshotter)
 	defer ntl.Close()
 	ntl.Start(context.Background(), &sync.WaitGroup{}, &mockstore{})
 
@@ -70,7 +71,9 @@ func TestTransactionLoggerCompacting(t *testing.T) {
 
 	s := store.NewStore(tu.NewMockStoreCfg(), l)
 
-	tl, err := NewFileTransactionalLogger(lcfg, l)
+	tempDir := t.TempDir()
+	snapshotter := snapshot.NewFileSnapshotter(tempDir, l)
+	tl, err := NewFileTransactionalLogger(lcfg, l, snapshotter)
 	require.NoError(t, err)
 	defer tl.Close()
 
@@ -88,12 +91,22 @@ func TestTransactionLoggerCompacting(t *testing.T) {
 
 	tl.WaitWritings()
 
-	tl.Compact()
+	tl.Snapshot()
+	tl.WaitSnapshot()
 
-	assert.Eventually(
-		t,
-		func() bool { return tl.lastSeq == 5 },
-		500*time.Millisecond,
-		20*time.Millisecond,
-	)
+	latestPath, latestSeq, err := snapshotter.FindLatest()
+	require.NoError(t, err, "expected to find a snapshot")
+
+	assert.Equal(t, uint64(15), latestSeq, "sequence number in snapshot should be the last known sequence number")
+
+	restoredState, err := snapshotter.Restore(latestPath)
+	require.NoError(t, err)
+
+	assert.Len(t, restoredState, 5, "snapshot should contain 5 items")
+	for i := 5; i < 10; i++ {
+		key := strconv.Itoa(i)
+		val, ok := restoredState[key]
+		assert.True(t, ok, "expected key %s to be in snapshot", key)
+		assert.Equal(t, strconv.Itoa(i+1), val, "incorrect value for key %s", key)
+	}
 }

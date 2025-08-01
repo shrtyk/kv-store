@@ -3,6 +3,7 @@ package app
 import (
 	"testing"
 
+	"github.com/shrtyk/kv-store/internal/snapshot"
 	"github.com/shrtyk/kv-store/internal/store"
 	"github.com/shrtyk/kv-store/internal/tlog"
 	"github.com/shrtyk/kv-store/pkg/cfg"
@@ -16,7 +17,8 @@ func TestApp(t *testing.T) {
 	lcfg := tutils.NewMockTransLogCfg()
 	tutils.FileCleanUp(t, lcfg.LogFileName)
 
-	tl := tlog.MustCreateNewFileTransLog(lcfg, l)
+	snapshotter := snapshot.NewFileSnapshotter(t.TempDir(), l)
+	tl := tlog.MustCreateNewFileTransLog(lcfg, l, snapshotter)
 	s := store.NewStore(&cfg.StoreCfg{}, l)
 
 	tapp := NewApp()
