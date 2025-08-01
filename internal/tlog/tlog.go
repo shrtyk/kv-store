@@ -299,18 +299,33 @@ func (l *logger) runSnapshotCreation(ech chan<- error) {
 
 	l.log.Info("transaction log compaction and snapshotting running")
 
+	latestSnapshotPath, _, err := l.snapshotter.FindLatest()
+	var compactedMap map[string]string
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		ech <- fmt.Errorf("failed to find latest snapshot for compaction: %w", err)
+		return
+	} else if latestSnapshotPath != "" {
+		compactedMap, err = l.snapshotter.Restore(latestSnapshotPath)
+		if err != nil {
+			ech <- fmt.Errorf("failed to restore latest snapshot for compaction: %w", err)
+			return
+		}
+	} else {
+		compactedMap = make(map[string]string)
+	}
+
 	l.fileMu.Lock()
 	curLogName := l.file.Name()
 	if err := l.file.Close(); err != nil {
 		l.fileMu.Unlock()
-		ech <- fmt.Errorf("failed to close current log file for compaction: %w", err)
+		ech <- fmt.Errorf("failed to close current wal for compaction: %w", err)
 		return
 	}
 
 	compactingLogName := fmt.Sprintf("%s.compacting", curLogName)
 	if err := os.Rename(curLogName, compactingLogName); err != nil {
 		l.fileMu.Unlock()
-		ech <- fmt.Errorf("failed to rename log file for compaction: %w", err)
+		ech <- fmt.Errorf("failed to rename wal for compaction: %w", err)
 		l.file, _ = os.OpenFile(curLogName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0755)
 		return
 	}
@@ -318,14 +333,14 @@ func (l *logger) runSnapshotCreation(ech chan<- error) {
 	newLogFile, err := os.OpenFile(curLogName, os.O_RDWR|os.O_APPEND|os.O_CREATE, 0755)
 	if err != nil {
 		l.fileMu.Unlock()
-		panic(fmt.Sprintf("failed to create new log file after renaming: %v", err))
+		panic(fmt.Sprintf("failed to create new wal file after renaming old: %v", err))
 	}
 	l.file = newLogFile
 	l.fileMu.Unlock()
 
-	lastSeq, compactedMap, err := l.readForSnapshot(compactingLogName)
+	lastSeq, err := l.applyLogToState(compactingLogName, compactedMap)
 	if err != nil {
-		ech <- fmt.Errorf("compaction failed during reading log: %w", err)
+		ech <- fmt.Errorf("snapshotting failed during reading log: %w", err)
 		return
 	}
 
@@ -335,20 +350,19 @@ func (l *logger) runSnapshotCreation(ech chan<- error) {
 	}
 
 	if err := os.Remove(compactingLogName); err != nil {
-		l.log.Error("failed to remove compacted log file", sl.ErrorAttr(err))
+		l.log.Error("failed to remove old wal", sl.ErrorAttr(err))
 	}
 
-	l.log.Debug("log file compaction and snapshotting finished successfully")
+	l.log.Debug("snapshotting finished successfully")
 }
 
-func (l *logger) readForSnapshot(sourceName string) (lastSeq uint64, compactedMap map[string]string, err error) {
+func (l *logger) applyLogToState(sourceName string, state map[string]string) (lastSeq uint64, err error) {
 	sourceFile, err := os.Open(sourceName)
 	if err != nil {
-		return 0, nil, fmt.Errorf("failed to open source file for compaction: %w", err)
+		return 0, fmt.Errorf("failed to open wal file for snapshotting: %w", err)
 	}
 	defer sourceFile.Close()
 
-	compactedMap = make(map[string]string)
 	s := bufio.NewScanner(sourceFile)
 	for s.Scan() {
 		var e event
@@ -383,17 +397,17 @@ func (l *logger) readForSnapshot(sourceName string) (lastSeq uint64, compactedMa
 
 		switch e.event {
 		case EventPut:
-			compactedMap[e.key] = e.value
+			state[e.key] = e.value
 		case EventDelete:
-			delete(compactedMap, e.key)
+			delete(state, e.key)
 		}
 	}
 
 	if err = s.Err(); err != nil {
-		return 0, nil, fmt.Errorf("failed to read source log for compaction: %w", err)
+		return 0, fmt.Errorf("failed to scan source log for snapshotting: %w", err)
 	}
 
-	return lastSeq, compactedMap, nil
+	return lastSeq, nil
 }
 
 func (l *logger) waitSnapshot() {
