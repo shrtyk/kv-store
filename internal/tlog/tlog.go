@@ -300,7 +300,20 @@ func (l *logger) runSnapshotCreation(s Store, ech chan<- error) {
 
 	l.log.Info("transaction log compaction and snapshotting running")
 
-	items := s.Items()
+	latestSnapshotPath, _, err := l.snapshotter.FindLatest()
+	var compactedMap map[string]string
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		ech <- fmt.Errorf("failed to find latest snapshot for compaction: %w", err)
+		return
+	} else if latestSnapshotPath != "" {
+		compactedMap, err = l.snapshotter.Restore(latestSnapshotPath)
+		if err != nil {
+			ech <- fmt.Errorf("failed to restore latest snapshot for compaction: %w", err)
+			return
+		}
+	} else {
+		compactedMap = make(map[string]string)
+	}
 
 	l.fileMu.Lock()
 	curLogName := l.file.Name()
@@ -326,13 +339,13 @@ func (l *logger) runSnapshotCreation(s Store, ech chan<- error) {
 	l.file = newLogFile
 	l.fileMu.Unlock()
 
-	lastSeq, err := l.applyLogToState(compactingLogName, items)
+	lastSeq, err := l.applyLogToState(compactingLogName, compactedMap)
 	if err != nil {
 		ech <- fmt.Errorf("snapshotting failed during reading log: %w", err)
 		return
 	}
 
-	if _, err := l.snapshotter.Create(items, lastSeq); err != nil {
+	if _, err := l.snapshotter.Create(compactedMap, lastSeq); err != nil {
 		ech <- fmt.Errorf("failed to create snapshot: %w", err)
 		return
 	}
