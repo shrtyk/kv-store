@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestXxhasher_Sum64(t *testing.T) {
+func TestXxhasherSum64(t *testing.T) {
 	hasher := Xxhasher{}
 	hash1 := hasher.Sum64("test_string")
 	hash2 := hasher.Sum64("test_string")

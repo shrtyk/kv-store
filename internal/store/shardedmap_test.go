@@ -14,13 +14,13 @@ func TestNewShardedMap(t *testing.T) {
 	assert.NotNil(t, m.hash)
 }
 
-func TestShardedMap_GetShard(t *testing.T) {
+func TestShardedMapGetShard(t *testing.T) {
 	m := NewShardedMap(16, Xxhasher{})
 	shard := m.getShard("test_key")
 	assert.NotNil(t, shard)
 }
 
-func TestShardedMap_PutAndGet(t *testing.T) {
+func TestShardedMapPutAndGet(t *testing.T) {
 	m := NewShardedMap(16, Xxhasher{})
 
 	m.Put("key1", "value1")
@@ -32,7 +32,7 @@ func TestShardedMap_PutAndGet(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func TestShardedMap_Delete(t *testing.T) {
+func TestShardedMapDelete(t *testing.T) {
 	m := NewShardedMap(16, Xxhasher{})
 	m.Put("key1", "value1")
 
@@ -41,7 +41,7 @@ func TestShardedMap_Delete(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func TestShardedMap_Len(t *testing.T) {
+func TestShardedMapLen(t *testing.T) {
 	m := NewShardedMap(16, Xxhasher{})
 	assert.Equal(t, 0, m.Len())
 
@@ -53,7 +53,7 @@ func TestShardedMap_Len(t *testing.T) {
 	assert.Equal(t, 1, m.Len())
 }
 
-func TestShardedMap_Items(t *testing.T) {
+func TestShardedMapItems(t *testing.T) {
 	m := NewShardedMap(16, Xxhasher{})
 	m.Put("key1", "value1")
 	m.Put("key2", "value2")
@@ -66,7 +66,7 @@ func TestShardedMap_Items(t *testing.T) {
 	assert.Equal(t, expected, items)
 }
 
-func TestShardedMap_ConcurrentAccess(t *testing.T) {
+func TestShardedMapConcurrentAccess(t *testing.T) {
 	m := NewShardedMap(16, Xxhasher{})
 	var wg sync.WaitGroup
 
