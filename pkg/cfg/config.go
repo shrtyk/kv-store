@@ -19,6 +19,8 @@ type StoreCfg struct {
 	MaxKeySize int `yaml:"max_key"`
 	MaxValSize int `yaml:"max_val"`
 
+	ShardsCount int `yaml:"shards_count"`
+
 	TryRebuildIn        time.Duration `yaml:"rebuild_in"`
 	MinDeletesTrigger   int           `yaml:"min_deletes"`
 	SparseRatio         float64       `yaml:"sparse_ratio"`
