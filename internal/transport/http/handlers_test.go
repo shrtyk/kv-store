@@ -136,6 +136,10 @@ func (m *mockStore) Delete(key string) error {
 	return m.errOnDelete
 }
 
+func (m *mockStore) Items() map[string]string {
+	return nil
+}
+
 func TestInternalErrWithMocks(t *testing.T) {
 	l, _ := tu.NewMockLogger()
 	lcfg := tu.NewMockTransLogCfg()

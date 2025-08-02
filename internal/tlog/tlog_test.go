@@ -13,7 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type mockstore struct{}
+type mockstore struct{
+	store.Store
+}
 
 func (m *mockstore) Put(key, value string) error {
 	return nil
@@ -22,6 +24,10 @@ func (m *mockstore) Get(key string) (string, error) {
 	return "", nil
 }
 func (m *mockstore) Delete(key string) error {
+	return nil
+}
+
+func (m *mockstore) Items() map[string]string {
 	return nil
 }
 
@@ -96,7 +102,7 @@ func TestTransactionLoggerCompacting(t *testing.T) {
 
 	tl.WaitWritings()
 
-	tl.snapshot()
+	tl.snapshot(s)
 	tl.waitSnapshot()
 
 	latestPath, latestSeq, err := snapshotter.FindLatest()

@@ -37,6 +37,7 @@ type event struct {
 type Store interface {
 	Delete(key string) error
 	Put(key, val string) error
+	Items() map[string]string
 }
 
 type TransactionsLogger interface {
@@ -51,10 +52,10 @@ type TransactionsLogger interface {
 }
 
 type logger struct {
-	fileMu       sync.Mutex
-	isCompacting atomic.Bool
-	snapshotWg   sync.WaitGroup
-	writingsWg   sync.WaitGroup
+	fileMu        sync.Mutex
+	isSnaphotting atomic.Bool
+	snapshotWg    sync.WaitGroup
+	writingsWg    sync.WaitGroup
 
 	cfg         *cfg.WalCfg
 	log         *slog.Logger
@@ -126,7 +127,7 @@ func (l *logger) Start(ctx context.Context, wg *sync.WaitGroup, s Store) {
 				if statErr != nil {
 					l.log.Warn("failed to get WAL file stats", sl.ErrorAttr(statErr))
 				} else if stat.Size() >= l.cfg.MaxSizeBytes {
-					l.snapshot()
+					l.snapshot(s)
 				}
 			}
 		}
@@ -261,25 +262,25 @@ func (l *logger) WaitWritings() {
 	l.writingsWg.Wait()
 }
 
-func (l *logger) snapshot() {
-	if !l.isCompacting.CompareAndSwap(false, true) {
-		l.log.Info("compaction is already in progress")
+func (l *logger) snapshot(s Store) {
+	if !l.isSnaphotting.CompareAndSwap(false, true) {
+		l.log.Debug("snapshotting is already in progress")
 		return
 	}
 	l.snapshotWg.Add(1)
-	go l.runSnapshotSupervisor()
+	go l.runSnapshotSupervisor(s)
 }
 
-func (l *logger) runSnapshotSupervisor() {
+func (l *logger) runSnapshotSupervisor(s Store) {
 	defer l.snapshotWg.Done()
-	defer l.isCompacting.Store(false)
+	defer l.isSnaphotting.Store(false)
 	l.log.Info("starting snapshot supervisor")
 
 	for {
 		errCh := make(chan error, 1)
 
 		l.snapshotWg.Add(1)
-		go l.runSnapshotCreation(errCh)
+		go l.runSnapshotCreation(s, errCh)
 
 		err := <-errCh
 		if err != nil {
@@ -293,26 +294,13 @@ func (l *logger) runSnapshotSupervisor() {
 	}
 }
 
-func (l *logger) runSnapshotCreation(ech chan<- error) {
+func (l *logger) runSnapshotCreation(s Store, ech chan<- error) {
 	defer l.snapshotWg.Done()
 	defer close(ech)
 
 	l.log.Info("transaction log compaction and snapshotting running")
 
-	latestSnapshotPath, _, err := l.snapshotter.FindLatest()
-	var compactedMap map[string]string
-	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		ech <- fmt.Errorf("failed to find latest snapshot for compaction: %w", err)
-		return
-	} else if latestSnapshotPath != "" {
-		compactedMap, err = l.snapshotter.Restore(latestSnapshotPath)
-		if err != nil {
-			ech <- fmt.Errorf("failed to restore latest snapshot for compaction: %w", err)
-			return
-		}
-	} else {
-		compactedMap = make(map[string]string)
-	}
+	items := s.Items()
 
 	l.fileMu.Lock()
 	curLogName := l.file.Name()
@@ -338,13 +326,13 @@ func (l *logger) runSnapshotCreation(ech chan<- error) {
 	l.file = newLogFile
 	l.fileMu.Unlock()
 
-	lastSeq, err := l.applyLogToState(compactingLogName, compactedMap)
+	lastSeq, err := l.applyLogToState(compactingLogName, items)
 	if err != nil {
 		ech <- fmt.Errorf("snapshotting failed during reading log: %w", err)
 		return
 	}
 
-	if _, err := l.snapshotter.Create(compactedMap, lastSeq); err != nil {
+	if _, err := l.snapshotter.Create(items, lastSeq); err != nil {
 		ech <- fmt.Errorf("failed to create snapshot: %w", err)
 		return
 	}
