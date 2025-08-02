@@ -17,6 +17,7 @@ import (
 	"github.com/shrtyk/kv-store/internal/store"
 	"github.com/shrtyk/kv-store/internal/tlog"
 	transport "github.com/shrtyk/kv-store/internal/transport/http"
+	"github.com/shrtyk/kv-store/pkg/cfg"
 	"github.com/shrtyk/kv-store/pkg/logger"
 	metrics "github.com/shrtyk/kv-store/pkg/prometheus"
 )
@@ -27,7 +28,7 @@ func (app *application) Serve(addr string) {
 
 	s := http.Server{
 		Addr:         addr,
-		Handler:      NewRouter(app.store, app.tl, app.metrics),
+		Handler:      NewRouter(&app.cfg.Store, app.store, app.tl, app.metrics),
 		IdleTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		ReadTimeout:  10 * time.Second,
@@ -76,11 +77,12 @@ type Middlewares interface {
 }
 
 func NewRouter(
+	stCfg *cfg.StoreCfg,
 	store store.Store,
 	tl tlog.TransactionsLogger,
 	m metrics.Metrics,
 ) *chi.Mux {
-	var handlers HandlersProvider = transport.NewHandlersProvider(store, tl, m)
+	var handlers HandlersProvider = transport.NewHandlersProvider(stCfg, store, tl, m)
 	var mws Middlewares = mw.NewMiddlewares(m)
 
 	mux := chi.NewMux()

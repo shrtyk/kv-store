@@ -10,17 +10,25 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shrtyk/kv-store/internal/store"
 	"github.com/shrtyk/kv-store/internal/tlog"
+	"github.com/shrtyk/kv-store/pkg/cfg"
 	metrics "github.com/shrtyk/kv-store/pkg/prometheus"
 )
 
 type handlersProvider struct {
+	stCfg   *cfg.StoreCfg
 	store   store.Store
 	tl      tlog.TransactionsLogger
 	metrics metrics.Metrics
 }
 
-func NewHandlersProvider(store store.Store, tl tlog.TransactionsLogger, m metrics.Metrics) *handlersProvider {
+func NewHandlersProvider(
+	stCfg *cfg.StoreCfg,
+	store store.Store,
+	tl tlog.TransactionsLogger,
+	m metrics.Metrics,
+) *handlersProvider {
 	return &handlersProvider{
+		stCfg:   stCfg,
 		store:   store,
 		tl:      tl,
 		metrics: m,
@@ -42,13 +50,21 @@ func (h *handlersProvider) PutHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer r.Body.Close()
 
+	if len(key) > h.stCfg.MaxKeySize {
+		http.Error(w, store.ErrKeyTooLarge.Error(), http.StatusBadRequest)
+		return
+	}
+	if len(val) > h.stCfg.MaxValSize {
+		http.Error(w, store.ErrValueTooLarge.Error(), http.StatusBadRequest)
+		return
+	}
+
 	h.tl.WritePut(key, string(val))
 	err = h.store.Put(key, string(val))
 
-	h.metrics.Put(key, time.Since(start).Seconds())
-
 	if err != nil {
 		switch {
+		// First two checks are pretty redundant and left just in case something went terribly wrong
 		case errors.Is(err, store.ErrKeyTooLarge):
 			http.Error(w, err.Error(), http.StatusBadRequest)
 		case errors.Is(err, store.ErrValueTooLarge):
@@ -59,6 +75,8 @@ func (h *handlersProvider) PutHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusCreated)
+
+	h.metrics.Put(key, time.Since(start).Seconds())
 }
 
 func (h *handlersProvider) GetHandler(w http.ResponseWriter, r *http.Request) {
@@ -66,8 +84,6 @@ func (h *handlersProvider) GetHandler(w http.ResponseWriter, r *http.Request) {
 
 	key := chi.URLParam(r, "key")
 	val, err := h.store.Get(key)
-
-	h.metrics.Get(key, time.Since(start).Seconds())
 
 	if err != nil {
 		switch {
@@ -83,6 +99,8 @@ func (h *handlersProvider) GetHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	h.metrics.Get(key, time.Since(start).Seconds())
 }
 
 func (h *handlersProvider) DeleteHandler(w http.ResponseWriter, r *http.Request) {
@@ -92,10 +110,10 @@ func (h *handlersProvider) DeleteHandler(w http.ResponseWriter, r *http.Request)
 	h.tl.WriteDelete(key)
 	err := h.store.Delete(key)
 
-	h.metrics.Delete(key, time.Since(start).Seconds())
-
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	h.metrics.Delete(key, time.Since(start).Seconds())
 }

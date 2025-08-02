@@ -29,7 +29,7 @@ func TestServe(t *testing.T) {
 	store := store.NewStore(tu.NewMockStoreCfg(), l)
 	m := metrics.NewMockMetrics()
 
-	router := NewRouter(store, tl, m)
+	router := NewRouter(tu.NewMockStoreCfg(), store, tl, m)
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/", nil)
 	w := httptest.NewRecorder()

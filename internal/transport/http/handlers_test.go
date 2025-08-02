@@ -46,7 +46,12 @@ func subTestTemplate(router http.Handler, c testCase) subtest {
 }
 
 func NewTestRouter(s store.Store, tl tlog.TransactionsLogger) *chi.Mux {
-	hh := NewHandlersProvider(s, tl, metrics.NewMockMetrics())
+	hh := NewHandlersProvider(
+		tu.NewMockStoreCfg(),
+		s,
+		tl,
+		metrics.NewMockMetrics(),
+	)
 	mux := chi.NewMux()
 	mux.Route("/v1", func(r chi.Router) {
 		r.Get("/", hh.HelloHandler)
