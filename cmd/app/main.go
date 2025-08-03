@@ -6,18 +6,22 @@ import (
 	"github.com/shrtyk/kv-store/internal/store"
 	"github.com/shrtyk/kv-store/internal/tlog"
 	"github.com/shrtyk/kv-store/pkg/cfg"
-	"github.com/shrtyk/kv-store/pkg/logger"
+	log "github.com/shrtyk/kv-store/pkg/logger"
 	metrics "github.com/shrtyk/kv-store/pkg/prometheus"
 )
 
 func main() {
 	cfg := cfg.ReadConfig()
-	logger := logger.NewLogger(cfg.Env)
+	logger := log.NewLogger(cfg.Env)
 
 	snapshotter := snapshot.NewFileSnapshotter(&cfg.Snapshots, logger)
 
 	tl := tlog.MustCreateNewFileTransLog(&cfg.Wal, logger, snapshotter)
-	defer tl.Close()
+	defer func() {
+		if err := tl.Close(); err != nil {
+			logger.Error("failed to close transaction logger", log.ErrorAttr(err))
+		}
+	}()
 
 	m := metrics.NewPrometheusMetrics()
 	st := store.NewStore(&cfg.Store, logger)

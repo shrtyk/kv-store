@@ -362,7 +362,11 @@ func (l *logger) applyLogToState(sourceName string, state map[string]string) (la
 	if err != nil {
 		return 0, fmt.Errorf("failed to open wal file for snapshotting: %w", err)
 	}
-	defer sourceFile.Close()
+	defer func() {
+		if err := sourceFile.Close(); err != nil {
+			l.log.Warn("failed to close source file", sl.ErrorAttr(err))
+		}
+	}()
 
 	s := bufio.NewScanner(sourceFile)
 	for s.Scan() {

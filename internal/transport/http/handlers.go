@@ -36,7 +36,9 @@ func NewHandlersProvider(
 }
 
 func (h *handlersProvider) HelloHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "Hello!")
+	if _, err := fmt.Fprintln(w, "Hello!"); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func (h *handlersProvider) PutHandler(w http.ResponseWriter, r *http.Request) {
@@ -48,7 +50,11 @@ func (h *handlersProvider) PutHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	defer r.Body.Close()
+	defer func() {
+		if err := r.Body.Close(); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	}()
 
 	if len(key) > h.stCfg.MaxKeySize {
 		http.Error(w, store.ErrKeyTooLarge.Error(), http.StatusBadRequest)

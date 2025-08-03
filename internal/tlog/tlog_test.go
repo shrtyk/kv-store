@@ -43,7 +43,9 @@ func TestTransactionFileLoggger(t *testing.T) {
 	)
 	tl, err := NewFileTransactionalLogger(lcfg, l, snapshotter)
 	require.NoError(t, err)
-	defer tl.Close()
+	defer func() {
+		assert.NoError(t, tl.Close())
+	}()
 
 	tl.Start(context.Background(), &sync.WaitGroup{}, &mockstore{})
 
@@ -59,7 +61,9 @@ func TestTransactionFileLoggger(t *testing.T) {
 	tl.WaitWritings()
 
 	ntl := MustCreateNewFileTransLog(lcfg, l, snapshotter)
-	defer ntl.Close()
+	defer func() {
+		assert.NoError(t, ntl.Close())
+	}()
 	ntl.Start(context.Background(), &sync.WaitGroup{}, &mockstore{})
 
 	events, errs = ntl.ReadEvents()
@@ -86,7 +90,9 @@ func TestTransactionLoggerCompacting(t *testing.T) {
 	)
 	tl, err := NewFileTransactionalLogger(lcfg, l, snapshotter)
 	require.NoError(t, err)
-	defer tl.Close()
+	defer func() {
+		assert.NoError(t, tl.Close())
+	}()
 
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()

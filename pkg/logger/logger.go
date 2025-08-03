@@ -47,8 +47,10 @@ func ErrorAttr(err error) slog.Attr {
 	}
 }
 
+type ctxKeyType string
+
 const (
-	ctxKey = "logger"
+	ctxKey ctxKeyType = "logger"
 )
 
 func FromCtx(ctx context.Context) *slog.Logger {

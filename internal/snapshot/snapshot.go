@@ -44,7 +44,11 @@ func (s *FileSnapshotter) Create(state map[string]string, lastSeq uint64) (strin
 	if err != nil {
 		return "", fmt.Errorf("failed to create snapshot file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			s.logger.Warn("failed to close snapshot file", logger.ErrorAttr(err))
+		}
+	}()
 
 	for k, v := range state {
 		_, err := fmt.Fprintf(file, "%s\t%s\n", k, v)
@@ -174,7 +178,11 @@ func (s *FileSnapshotter) Restore(path string) (map[string]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open snapshot file: %w", err)
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			s.logger.Warn("failed to close snapshot file", logger.ErrorAttr(err))
+		}
+	}()
 
 	state := make(map[string]string)
 	scanner := bufio.NewScanner(file)

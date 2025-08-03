@@ -3,7 +3,6 @@ package metrics
 import (
 	"strconv"
 
-	"github.com/prometheus/client_golang/prometheus"
 	p "github.com/prometheus/client_golang/prometheus"
 )
 
@@ -66,7 +65,7 @@ func NewPrometheusMetrics() *metrics {
 		Buckets: p.LinearBuckets(0.0001, 0.0001, 10),
 	})
 
-	prometheus.MustRegister(
+	p.MustRegister(
 		put, del, get, putHist,
 		delHist, getHist, httpRequests, httpReqHist)
 	return &metrics{

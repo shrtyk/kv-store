@@ -24,7 +24,9 @@ func TestServe(t *testing.T) {
 		l,
 	)
 	tl := tlog.MustCreateNewFileTransLog(lcfg, l, snapshotter)
-	defer tl.Close()
+	defer func() {
+		assert.NoError(t, tl.Close())
+	}()
 
 	store := store.NewStore(tu.NewMockStoreCfg(), l)
 	m := metrics.NewMockMetrics()

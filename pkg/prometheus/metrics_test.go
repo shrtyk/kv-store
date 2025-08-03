@@ -8,6 +8,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var m *metrics
@@ -34,11 +35,13 @@ func TestMetricsPut(t *testing.T) {
 	m.Put("test_key", 0.1)
 
 	metric := &dto.Metric{}
-	m.putsCounter.WithLabelValues("test_key").Write(metric)
+	err := m.putsCounter.WithLabelValues("test_key").Write(metric)
+	require.NoError(t, err)
 	assert.Equal(t, float64(1), metric.Counter.GetValue())
 
 	metric.Reset()
-	m.putHistogram.Write(metric)
+	err = m.putHistogram.Write(metric)
+	require.NoError(t, err)
 	assert.Equal(t, uint64(1), metric.Histogram.GetSampleCount())
 
 	prometheus.Unregister(m.putsCounter)
@@ -48,11 +51,13 @@ func TestMetricsDelete(t *testing.T) {
 	m.Delete("test_key", 0.1)
 
 	metric := &dto.Metric{}
-	m.deleteCounter.WithLabelValues("test_key").Write(metric)
+	err := m.deleteCounter.WithLabelValues("test_key").Write(metric)
+	require.NoError(t, err)
 	assert.Equal(t, float64(1), metric.Counter.GetValue())
 
 	metric.Reset()
-	m.delHistogram.Write(metric)
+	err = m.delHistogram.Write(metric)
+	require.NoError(t, err)
 	assert.Equal(t, uint64(1), metric.Histogram.GetSampleCount())
 
 	prometheus.Unregister(m.deleteCounter)
@@ -62,11 +67,13 @@ func TestMetricsGet(t *testing.T) {
 	m.Get("test_key", 0.1)
 
 	metric := &dto.Metric{}
-	m.getCounter.WithLabelValues("test_key").Write(metric)
+	err := m.getCounter.WithLabelValues("test_key").Write(metric)
+	require.NoError(t, err)
 	assert.Equal(t, float64(1), metric.Counter.GetValue())
 
 	metric.Reset()
-	m.getHistogram.Write(metric)
+	err = m.getHistogram.Write(metric)
+	require.NoError(t, err)
 	assert.Equal(t, uint64(1), metric.Histogram.GetSampleCount())
 
 	prometheus.Unregister(m.getCounter)
@@ -76,11 +83,13 @@ func TestMetricsHttpRequest(t *testing.T) {
 	m.HttpRequest(http.StatusOK, http.MethodGet, "/test", 0.1)
 
 	metric := &dto.Metric{}
-	m.httpRequests.WithLabelValues("200", "GET", "/test").Write(metric)
+	err := m.httpRequests.WithLabelValues("200", "GET", "/test").Write(metric)
+	require.NoError(t, err)
 	assert.Equal(t, float64(1), metric.Counter.GetValue())
 
 	metric.Reset()
-	m.httpRequestsHistogram.Write(metric)
+	err = m.httpRequestsHistogram.Write(metric)
+	require.NoError(t, err)
 	assert.Equal(t, uint64(1), metric.Histogram.GetSampleCount())
 
 	prometheus.Unregister(m.httpRequests)

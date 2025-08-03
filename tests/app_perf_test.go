@@ -45,7 +45,7 @@ func TestFunctional_BulkPutDeletePerformance(t *testing.T) {
 
 		resp, err := client.Do(req)
 		require.NoError(t, err, "Request failed")
-		resp.Body.Close()
+		require.NoError(t, resp.Body.Close())
 
 		require.Equal(t, http.StatusCreated, resp.StatusCode, "Expected status 201 Created for key %s", key)
 		keysCreated = append(keysCreated, key)
@@ -68,7 +68,7 @@ func TestFunctional_BulkPutDeletePerformance(t *testing.T) {
 
 		resp, err := client.Do(req)
 		require.NoError(t, err, "Request failed")
-		resp.Body.Close()
+		require.NoError(t, resp.Body.Close())
 
 		require.Equal(t, http.StatusOK, resp.StatusCode, "Expected status 200 OK for deleting key %s", key)
 	}
