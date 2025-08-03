@@ -2,7 +2,6 @@ package httphandlers
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -35,12 +34,18 @@ func NewHandlersProvider(
 	}
 }
 
-func (h *handlersProvider) HelloHandler(w http.ResponseWriter, r *http.Request) {
-	if _, err := fmt.Fprintln(w, "Hello!"); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
+// PutHandler godoc
+// @Summary      Puts a value into the store
+// @Description  Puts a value into the store
+// @Tags         store
+// @Accept       text/plain
+// @Produce      text/plain
+// @Param        key path string true "key"
+// @Param        value body string true "value"
+// @Success      201
+// @Failure      400 {string} string "Wrong input data"
+// @Failure      500 {string} string "Internal Server Error"
+// @Router       /v1/{key} [put]
 func (h *handlersProvider) PutHandler(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
@@ -85,6 +90,16 @@ func (h *handlersProvider) PutHandler(w http.ResponseWriter, r *http.Request) {
 	h.metrics.Put(key, time.Since(start).Seconds())
 }
 
+// GetHandler godoc
+// @Summary      Gets a value from the store
+// @Description  Gets a value from the store
+// @Tags         store
+// @Produce      text/plain
+// @Param        key path string true "key"
+// @Success      200 {string} string "value"
+// @Failure      404
+// @Failure      500 {string} string "Internal Server Error"
+// @Router       /v1/{key} [get]
 func (h *handlersProvider) GetHandler(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
@@ -109,6 +124,14 @@ func (h *handlersProvider) GetHandler(w http.ResponseWriter, r *http.Request) {
 	h.metrics.Get(key, time.Since(start).Seconds())
 }
 
+// DeleteHandler godoc
+// @Summary      Deletes a value from the store
+// @Description  Deletes a value from the store
+// @Tags         store
+// @Param        key path string true "key"
+// @Success      200
+// @Failure      500 {string} string "Internal Server Error"
+// @Router       /v1/{key} [delete]
 func (h *handlersProvider) DeleteHandler(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 

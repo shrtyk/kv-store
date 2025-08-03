@@ -54,7 +54,6 @@ func NewTestRouter(s store.Store, tl tlog.TransactionsLogger) *chi.Mux {
 	)
 	mux := chi.NewMux()
 	mux.Route("/v1", func(r chi.Router) {
-		r.Get("/", hh.HelloHandler)
 		r.Put("/{key}", hh.PutHandler)
 		r.Get("/{key}", hh.GetHandler)
 		r.Delete("/{key}", hh.DeleteHandler)

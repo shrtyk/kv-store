@@ -1,0 +1,82 @@
+info:
+  contact: {}
+  description: A simple key-value store.
+  title: KV-Store API
+  version: "1.0"
+paths:
+  /v1/{key}:
+    delete:
+      description: Deletes a value from the store
+      parameters:
+      - description: key
+        in: path
+        name: key
+        required: true
+        type: string
+      responses:
+        "200":
+          description: OK
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Deletes a value from the store
+      tags:
+      - store
+    get:
+      description: Gets a value from the store
+      parameters:
+      - description: key
+        in: path
+        name: key
+        required: true
+        type: string
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: value
+          schema:
+            type: string
+        "404":
+          description: Not Found
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Gets a value from the store
+      tags:
+      - store
+    put:
+      consumes:
+      - text/plain
+      description: Puts a value into the store
+      parameters:
+      - description: key
+        in: path
+        name: key
+        required: true
+        type: string
+      - description: value
+        in: body
+        name: value
+        required: true
+        schema:
+          type: string
+      produces:
+      - text/plain
+      responses:
+        "201":
+          description: Created
+        "400":
+          description: Wrong input data
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Puts a value into the store
+      tags:
+      - store
+swagger: "2.0"

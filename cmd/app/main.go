@@ -10,6 +10,9 @@ import (
 	metrics "github.com/shrtyk/kv-store/pkg/prometheus"
 )
 
+// @title           KV-Store API
+// @version         1.0
+// @description     A simple key-value store.
 func main() {
 	cfg := cfg.ReadConfig()
 	logger := log.NewLogger(cfg.Env)

@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	_ "github.com/shrtyk/kv-store/api/http"
 	mw "github.com/shrtyk/kv-store/internal/middleware"
 	"github.com/shrtyk/kv-store/internal/store"
 	"github.com/shrtyk/kv-store/internal/tlog"
@@ -20,6 +21,7 @@ import (
 	"github.com/shrtyk/kv-store/pkg/cfg"
 	"github.com/shrtyk/kv-store/pkg/logger"
 	metrics "github.com/shrtyk/kv-store/pkg/prometheus"
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
 func (app *application) Serve(addr string) {
@@ -66,7 +68,6 @@ func (app *application) Serve(addr string) {
 }
 
 type HandlersProvider interface {
-	HelloHandler(w http.ResponseWriter, r *http.Request)
 	PutHandler(w http.ResponseWriter, r *http.Request)
 	GetHandler(w http.ResponseWriter, r *http.Request)
 	DeleteHandler(w http.ResponseWriter, r *http.Request)
@@ -88,10 +89,9 @@ func NewRouter(
 	mux := chi.NewMux()
 
 	mux.Handle("/metrics", promhttp.Handler())
+	mux.Get("/swagger/*", httpSwagger.WrapHandler)
 	mux.Route("/v1", func(r chi.Router) {
 		r.Use(chimw.Recoverer, mws.HttpMetrics)
-
-		r.Get("/", handlers.HelloHandler)
 
 		r.Put("/{key}", handlers.PutHandler)
 		r.Get("/{key}", handlers.GetHandler)
