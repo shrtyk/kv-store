@@ -9,8 +9,6 @@ DOCKER_IMAGE_NAME=kv-store
 
 .PHONY: help build run test test-cover test-perf lint clean docker-build docker-up docker-down
 
-.DEFAULT_GOAL := help
-
 build: ## Build the Go binary
 	@go build -o $(BINARY_NAME) -ldflags="-w -s" $(CMD_PATH)
 

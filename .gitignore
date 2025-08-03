@@ -31,6 +31,7 @@ go.work.sum
 # .idea/
 # .vscode/
 
-config
+# Ignore local configuration files, but keep the example
+config/config.yml
 *.log
 *.dat
