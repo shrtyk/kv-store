@@ -21,18 +21,18 @@ type StoreCfg struct {
 
 	ShardsCount int `yaml:"shards_count"`
 
-	TryRebuildIn        time.Duration `yaml:"rebuild_in"`
-	MinDeletesTrigger   int           `yaml:"min_deletes"`
-	SparseRatio         float64       `yaml:"sparse_ratio"`
-	MinOpsBeforeRebuild int           `yaml:"min_ops_to_rebuild"`
+	// TryRebuildIn        time.Duration `yaml:"rebuild_in"`
+	// MinDeletesTrigger   int           `yaml:"min_deletes"`
+	// SparseRatio         float64       `yaml:"sparse_ratio"`
+	// MinOpsBeforeRebuild int           `yaml:"min_ops_to_rebuild"`
 }
 
 type WalCfg struct {
-	LogFileName   string        `yaml:"log_file_name"`
-	MaxSizeBytes  int64         `yaml:"log_size_bytes"`
-	FsyncIn       time.Duration `yaml:"fsync_in"`
-	RetriesAmount int           `yaml:"retries"`
-	RetryIn       time.Duration `yaml:"retry_in"`
+	LogFileName        string        `yaml:"log_file_name"`
+	MaxSizeBytes       int64         `yaml:"log_size_bytes"`
+	FsyncIn            time.Duration `yaml:"fsync_in"`
+	FsyncRetriesAmount int           `yaml:"fsync_retries"`
+	FsyncRetryIn       time.Duration `yaml:"fsync_retry_in"`
 }
 
 type SnapshotsCfg struct {

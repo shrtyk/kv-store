@@ -29,7 +29,7 @@ func NewMockStoreCfg() *cfg.StoreCfg {
 		MaxKeySize: 100,
 		MaxValSize: 100,
 
-		TryRebuildIn: 10 * time.Hour,
+		// TryRebuildIn: 10 * time.Hour,
 	}
 }
 
