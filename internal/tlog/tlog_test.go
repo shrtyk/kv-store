@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type mockstore struct{
+type mockstore struct {
 	store.Store
 }
 
@@ -77,7 +77,7 @@ func TestTransactionFileLoggger(t *testing.T) {
 	assert.EqualValues(t, uint64(4), ntl.lastSeq)
 }
 
-func TestTransactionLoggerCompacting(t *testing.T) {
+func TestSnapshotting(t *testing.T) {
 	l, _ := tu.NewMockLogger()
 	lcfg := tu.NewMockTransLogCfg()
 	tu.FileCleanUp(t, lcfg.LogFileName)

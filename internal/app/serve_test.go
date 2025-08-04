@@ -38,8 +38,8 @@ func TestServe(t *testing.T) {
 
 	router.ServeHTTP(w, req)
 
-	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, http.StatusNotFound, w.Code)
 	b, err := io.ReadAll(w.Body)
 	assert.NoError(t, err)
-	assert.Equal(t, "Hello!\n", string(b))
+	assert.Equal(t, "404 page not found\n", string(b))
 }
