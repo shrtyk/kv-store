@@ -3,6 +3,7 @@ package httphandlers
 import (
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/shrtyk/kv-store/internal/store"
 	"github.com/shrtyk/kv-store/internal/tlog"
 	"github.com/shrtyk/kv-store/pkg/cfg"
+	"github.com/shrtyk/kv-store/pkg/logger"
 	metrics "github.com/shrtyk/kv-store/pkg/prometheus"
 )
 
@@ -47,6 +49,7 @@ func NewHandlersProvider(
 // @Failure      500 {string} string "Internal Server Error"
 // @Router       /v1/{key} [put]
 func (h *handlersProvider) PutHandler(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromCtx(r.Context())
 	start := time.Now()
 
 	key := chi.URLParam(r, "key")
@@ -57,7 +60,7 @@ func (h *handlersProvider) PutHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer func() {
 		if err := r.Body.Close(); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			l.Error("failed to close request body", logger.ErrorAttr(err))
 		}
 	}()
 
@@ -88,6 +91,10 @@ func (h *handlersProvider) PutHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 
 	h.metrics.Put(key, time.Since(start).Seconds())
+	l.Debug(
+		"Put operation successfully completed",
+		slog.String("key", key),
+		slog.String("value", string(val)))
 }
 
 // GetHandler godoc
@@ -101,6 +108,7 @@ func (h *handlersProvider) PutHandler(w http.ResponseWriter, r *http.Request) {
 // @Failure      500 {string} string "Internal Server Error"
 // @Router       /v1/{key} [get]
 func (h *handlersProvider) GetHandler(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromCtx(r.Context())
 	start := time.Now()
 
 	key := chi.URLParam(r, "key")
@@ -122,6 +130,10 @@ func (h *handlersProvider) GetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.metrics.Get(key, time.Since(start).Seconds())
+	l.Debug(
+		"Get operation successfully completed",
+		slog.String("key", key),
+		slog.String("value", val))
 }
 
 // DeleteHandler godoc
@@ -133,6 +145,7 @@ func (h *handlersProvider) GetHandler(w http.ResponseWriter, r *http.Request) {
 // @Failure      500 {string} string "Internal Server Error"
 // @Router       /v1/{key} [delete]
 func (h *handlersProvider) DeleteHandler(w http.ResponseWriter, r *http.Request) {
+	l := logger.FromCtx(r.Context())
 	start := time.Now()
 
 	key := chi.URLParam(r, "key")
@@ -145,4 +158,5 @@ func (h *handlersProvider) DeleteHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	h.metrics.Delete(key, time.Since(start).Seconds())
+	l.Debug("Delete operation successfully completed", slog.String("key", key))
 }

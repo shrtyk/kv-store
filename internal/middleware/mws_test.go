@@ -6,7 +6,9 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	tutils "github.com/shrtyk/kv-store/pkg/testutils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type mockMetrics struct {
@@ -29,12 +31,14 @@ func (m *mockMetrics) Delete(key string, duration float64) {}
 func (m *mockMetrics) Get(key string, duration float64)    {}
 
 func TestHttpMetrics(t *testing.T) {
+	l, _ := tutils.NewMockLogger()
 	mockMetrics := &mockMetrics{}
-	mws := NewMiddlewares(mockMetrics)
+	mws := NewMiddlewares(l, mockMetrics)
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte("test"))
+		_, err := w.Write([]byte("test"))
+		require.NoError(t, err)
 	})
 
 	router := chi.NewRouter()
