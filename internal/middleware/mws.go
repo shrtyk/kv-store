@@ -1,19 +1,25 @@
 package middleware
 
 import (
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+	"github.com/shrtyk/kv-store/pkg/logger"
 	metrics "github.com/shrtyk/kv-store/pkg/prometheus"
+	"github.com/tomasen/realip"
 )
 
 type mws struct {
+	log     *slog.Logger
 	metrics metrics.Metrics
 }
 
-func NewMiddlewares(m metrics.Metrics) *mws {
+func NewMiddlewares(l *slog.Logger, m metrics.Metrics) *mws {
 	return &mws{
+		log:     l,
 		metrics: m,
 	}
 }
@@ -53,5 +59,20 @@ func (m *mws) HttpMetrics(next http.Handler) http.Handler {
 			r.Method,
 			chi.RouteContext(r.Context()).RoutePattern(),
 			time.Since(start).Seconds())
+	})
+}
+
+func (m *mws) Logging(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctxWithLog := logger.ToCtx(r.Context(), m.log.With(
+			slog.String("ip", realip.FromRequest(r)),
+			slog.String("user-agent", r.UserAgent()),
+			slog.String("request_id", uuid.New().String()),
+			slog.String("method", r.Method),
+			slog.String("url", r.URL.RequestURI()),
+		))
+
+		newReq := r.WithContext(ctxWithLog)
+		next.ServeHTTP(w, newReq)
 	})
 }
