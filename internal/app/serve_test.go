@@ -9,6 +9,7 @@ import (
 	"github.com/shrtyk/kv-store/internal/snapshot"
 	"github.com/shrtyk/kv-store/internal/store"
 	"github.com/shrtyk/kv-store/internal/tlog"
+	"github.com/shrtyk/kv-store/pkg/cfg"
 	metrics "github.com/shrtyk/kv-store/pkg/prometheus"
 	tu "github.com/shrtyk/kv-store/pkg/testutils"
 	"github.com/stretchr/testify/assert"
@@ -31,7 +32,16 @@ func TestServe(t *testing.T) {
 	store := store.NewStore(tu.NewMockStoreCfg(), l)
 	m := metrics.NewMockMetrics()
 
-	router := NewRouter(tu.NewMockStoreCfg(), store, tl, m)
+	app := NewApp()
+	app.Init(
+		WithCfg(&cfg.AppConfig{}),
+		WithLogger(l),
+		WithMetrics(m),
+		WithTransactionalLogger(tl),
+		WithStore(store),
+	)
+
+	router := app.NewRouter()
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/", nil)
 	w := httptest.NewRecorder()

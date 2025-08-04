@@ -15,12 +15,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	_ "github.com/shrtyk/kv-store/api/http"
 	mw "github.com/shrtyk/kv-store/internal/middleware"
-	"github.com/shrtyk/kv-store/internal/store"
-	"github.com/shrtyk/kv-store/internal/tlog"
 	transport "github.com/shrtyk/kv-store/internal/transport/http"
-	"github.com/shrtyk/kv-store/pkg/cfg"
 	"github.com/shrtyk/kv-store/pkg/logger"
-	metrics "github.com/shrtyk/kv-store/pkg/prometheus"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
@@ -30,7 +26,7 @@ func (app *application) Serve(addr string) {
 
 	s := http.Server{
 		Addr:         addr,
-		Handler:      NewRouter(&app.cfg.Store, app.store, app.tl, app.metrics),
+		Handler:      app.NewRouter(),
 		IdleTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,
 		ReadTimeout:  10 * time.Second,
@@ -75,23 +71,19 @@ type HandlersProvider interface {
 
 type Middlewares interface {
 	HttpMetrics(http.Handler) http.Handler
+	Logging(next http.Handler) http.Handler
 }
 
-func NewRouter(
-	stCfg *cfg.StoreCfg,
-	store store.Store,
-	tl tlog.TransactionsLogger,
-	m metrics.Metrics,
-) *chi.Mux {
-	var handlers HandlersProvider = transport.NewHandlersProvider(stCfg, store, tl, m)
-	var mws Middlewares = mw.NewMiddlewares(m)
+func (app *application) NewRouter() *chi.Mux {
+	var handlers HandlersProvider = transport.NewHandlersProvider(&app.cfg.Store, app.store, app.tl, app.metrics)
+	var mws Middlewares = mw.NewMiddlewares(app.logger, app.metrics)
 
 	mux := chi.NewMux()
 
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.Get("/swagger/*", httpSwagger.WrapHandler)
 	mux.Route("/v1", func(r chi.Router) {
-		r.Use(chimw.Recoverer, mws.HttpMetrics)
+		r.Use(chimw.Recoverer, mws.Logging, mws.HttpMetrics)
 
 		r.Put("/{key}", handlers.PutHandler)
 		r.Get("/{key}", handlers.GetHandler)
