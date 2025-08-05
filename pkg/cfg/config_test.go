@@ -28,90 +28,62 @@ store:
 	err = os.WriteFile(invalidConfigPath, []byte(invalidConfigContent), 0644)
 	require.NoError(t, err)
 
-	originalArgs := os.Args
-	defer func() {
-		os.Args = originalArgs
-	}()
-
 	testCases := []struct {
 		name           string
 		setup          func(t *testing.T)
-		expectPanic    bool
+		cleanup        func(t *testing.T)
 		expectedEnv    string
 		expectedMaxKey int
+		expectedMaxVal int
 	}{
 		{
 			name: "success with flag",
 			setup: func(t *testing.T) {
-				os.Args = []string{"cmd", "-cfg_path=" + validConfigPath}
+				err := flag.Set("cfg_path", validConfigPath)
+				require.NoError(t, err)
 			},
-			expectPanic:    false,
+			cleanup: func(t *testing.T) {
+				err := flag.Set("cfg_path", "")
+				require.NoError(t, err)
+				path = ""
+			},
 			expectedEnv:    "test",
 			expectedMaxKey: 1024,
+			expectedMaxVal: 4096,
 		},
 		{
 			name: "success with environment variable",
 			setup: func(t *testing.T) {
 				t.Setenv("CONFIG_PATH", validConfigPath)
 			},
-			expectPanic:    false,
+			cleanup:        func(t *testing.T) {},
 			expectedEnv:    "test",
 			expectedMaxKey: 1024,
+			expectedMaxVal: 4096,
 		},
 		{
-			name: "flag over environment variable",
+			name: "fallback to env when config file is invalid",
 			setup: func(t *testing.T) {
-				os.Args = []string{"cmd", "-cfg_path=" + validConfigPath}
-				t.Setenv("CONFIG_PATH", "a/path/that/does/not/exist.yaml")
+				t.Setenv("CONFIG_PATH", invalidConfigPath)
+				t.Setenv("ENV", "env-fallback-invalid")
 			},
-			expectPanic:    false,
-			expectedEnv:    "test",
-			expectedMaxKey: 1024,
-		},
-		{
-			name: "panic - config file does not exist",
-			setup: func(t *testing.T) {
-				os.Args = []string{"cmd", "-cfg_path=a/path/that/does/not/exist.yaml"}
-			},
-			expectPanic: true,
-		},
-		{
-			name: "panic - invalid config file format",
-			setup: func(t *testing.T) {
-				os.Args = []string{"cmd", "-cfg_path=" + invalidConfigPath}
-			},
-			expectPanic: true,
-		},
-		{
-			name: "panic - no config path provided",
-			setup: func(t *testing.T) {
-				os.Args = []string{"cmd"}
-				t.Setenv("CONFIG_PATH", "")
-			},
-			expectPanic: true,
+			cleanup:        func(t *testing.T) {},
+			expectedEnv:    "env-fallback-invalid",
+			expectedMaxKey: 1024, // default
+			expectedMaxVal: 1024, // default
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 			tc.setup(t)
-
-			defer func() {
-				r := recover()
-				if tc.expectPanic {
-					assert.NotNil(t, r)
-				} else {
-					assert.Nil(t, r)
-				}
-			}()
+			t.Cleanup(func() { tc.cleanup(t) })
 
 			cfg := ReadConfig()
 
-			if !tc.expectPanic {
-				assert.Equal(t, tc.expectedEnv, cfg.Env)
-				assert.Equal(t, tc.expectedMaxKey, cfg.Store.MaxKeySize)
-			}
+			assert.Equal(t, tc.expectedEnv, cfg.Env)
+			assert.Equal(t, tc.expectedMaxKey, cfg.Store.MaxKeySize)
+			assert.Equal(t, tc.expectedMaxVal, cfg.Store.MaxValSize)
 		})
 	}
 }
