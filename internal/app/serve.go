@@ -66,6 +66,7 @@ func (app *application) Serve() {
 }
 
 type HandlersProvider interface {
+	Healthz(w http.ResponseWriter, r *http.Request)
 	PutHandler(w http.ResponseWriter, r *http.Request)
 	GetHandler(w http.ResponseWriter, r *http.Request)
 	DeleteHandler(w http.ResponseWriter, r *http.Request)
@@ -84,6 +85,7 @@ func (app *application) NewRouter() *chi.Mux {
 
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.Get("/swagger/*", httpSwagger.WrapHandler)
+	mux.Get("/healthz", handlers.Healthz)
 	mux.Route("/v1", func(r chi.Router) {
 		r.Use(chimw.Recoverer, mws.Logging, mws.HttpMetrics)
 
@@ -91,6 +93,8 @@ func (app *application) NewRouter() *chi.Mux {
 		r.Get("/{key}", handlers.GetHandler)
 		r.Delete("/{key}", handlers.DeleteHandler)
 	})
+
+	mux.Get("/healthz", handlers.Healthz)
 
 	return mux
 }
