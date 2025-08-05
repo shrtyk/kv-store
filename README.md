@@ -1,5 +1,8 @@
 # In-Memory Key-Value Store
 
+[![kv-store-ci](https://github.com/shrtyk/kv-store/actions/workflows/ci.yml/badge.svg)](https://github.com/shrtyk/kv-store/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/github/shrtyk/kv-store/graph/badge.svg?token=GVFCB943N5)](https://codecov.io/github/shrtyk/kv-store)
+
 A high-performance, persistent, and observable in-memory key-value store built with Go. This project is a deep dive into the internal mechanisms of modern databases, demonstrating a practical exploration of concepts like data persistence, concurrency control, and system observability from the ground up.
 
 ## Features
