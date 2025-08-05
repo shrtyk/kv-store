@@ -2,6 +2,7 @@ package httphandlers
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -33,6 +34,20 @@ func NewHandlersProvider(
 		store:   store,
 		tl:      tl,
 		metrics: m,
+	}
+}
+
+// Healthz godoc
+// @Summary      Healthz
+// @Description  Health check
+// @Tags         store
+// @Produce      text/plain
+// @Success      200 {string} string
+// @Failure      500 {string} string "Internal Server Error"
+// @Router       /healthz [get]
+func (h *handlersProvider) Healthz(w http.ResponseWriter, r *http.Request) {
+	if _, err := fmt.Fprint(w, "kv-store up and healthy"); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
@@ -141,7 +156,7 @@ func (h *handlersProvider) GetHandler(w http.ResponseWriter, r *http.Request) {
 // @Description  Deletes a value from the store
 // @Tags         store
 // @Param        key path string true "key"
-// @Success      200
+// @Success      204
 // @Failure      500 {string} string "Internal Server Error"
 // @Router       /v1/{key} [delete]
 func (h *handlersProvider) DeleteHandler(w http.ResponseWriter, r *http.Request) {

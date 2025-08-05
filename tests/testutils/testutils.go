@@ -2,12 +2,15 @@ package tutils
 
 import (
 	"bytes"
+	"crypto/rand"
+	"encoding/hex"
 	"log/slog"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/shrtyk/kv-store/pkg/cfg"
+	"github.com/stretchr/testify/require"
 )
 
 func FileCleanUp(t *testing.T, filename string) {
@@ -46,4 +49,12 @@ func NewMockSnapshotsCfg(dir string, maxSnapshots int) *cfg.SnapshotsCfg {
 		SnapshotsDir:       dir,
 		MaxSnapshotsAmount: maxSnapshots,
 	}
+}
+
+func RandomString(t *testing.T, size int) string {
+	t.Helper()
+	b := make([]byte, size)
+	_, err := rand.Read(b)
+	require.NoError(t, err, "Failed to generate random bytes")
+	return hex.EncodeToString(b)
 }

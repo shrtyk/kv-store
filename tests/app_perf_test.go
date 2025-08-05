@@ -2,22 +2,13 @@ package app
 
 import (
 	"bytes"
-	"crypto/rand"
-	"encoding/hex"
 	"net/http"
 	"testing"
 	"time"
 
+	tutils "github.com/shrtyk/kv-store/tests/testutils"
 	"github.com/stretchr/testify/require"
 )
-
-func randomString(t *testing.T, size int) string {
-	t.Helper()
-	b := make([]byte, size)
-	_, err := rand.Read(b)
-	require.NoError(t, err, "Failed to generate random bytes")
-	return hex.EncodeToString(b)
-}
 
 func TestFunctional_BulkPutDeletePerformance(t *testing.T) {
 	const (
@@ -36,8 +27,8 @@ func TestFunctional_BulkPutDeletePerformance(t *testing.T) {
 	putStart := time.Now()
 
 	for range putRequests {
-		key := randomString(t, keySize)
-		value := randomString(t, valueSize)
+		key := tutils.RandomString(t, keySize)
+		value := tutils.RandomString(t, valueSize)
 		url := baseURL + "/" + key
 
 		req, err := http.NewRequest(http.MethodPut, url, bytes.NewBufferString(value))

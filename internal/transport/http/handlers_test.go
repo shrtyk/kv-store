@@ -53,6 +53,7 @@ func NewTestRouter(s store.Store, tl tlog.TransactionsLogger) *chi.Mux {
 		metrics.NewMockMetrics(),
 	)
 	mux := chi.NewMux()
+	mux.Get("/healthz", hh.Healthz)
 	mux.Route("/v1", func(r chi.Router) {
 		r.Put("/{key}", hh.PutHandler)
 		r.Get("/{key}", hh.GetHandler)
@@ -110,6 +111,21 @@ func TestHandlers(t *testing.T) {
 			method:   http.MethodGet,
 			wantBody: "404 page not found\n",
 			status:   http.StatusNotFound,
+		},
+		{
+			testName: "try to put huge key",
+			key:      tu.RandomString(t, 101),
+			method:   http.MethodPut,
+			wantBody: "key too large\n",
+			status:   http.StatusBadRequest,
+		},
+		{
+			testName: "try to put huge val",
+			key:      k,
+			value:    tu.RandomString(t, 101),
+			method:   http.MethodPut,
+			wantBody: "value too large\n",
+			status:   http.StatusBadRequest,
 		},
 	}
 
@@ -203,6 +219,40 @@ func TestInternalErrWithMocks(t *testing.T) {
 	}
 	tl.WaitWritings()
 	assert.NoError(t, tl.Close())
+}
+
+func TestHealthz(t *testing.T) {
+	router := testRouter(t)
+
+	rr := httptest.NewRecorder()
+	healthReq := httptest.NewRequest(http.MethodGet, "/healthz", nil)
+
+	router.ServeHTTP(rr, healthReq)
+
+	b, err := io.ReadAll(rr.Body)
+	assert.NoError(t, err)
+	assert.EqualValues(t, "kv-store up and healthy", string(b))
+	statusCodeAssertion(t, rr.Result().StatusCode, http.StatusOK)
+
+	assert.NoError(t, healthReq.Body.Close())
+}
+
+func testRouter(t *testing.T) *chi.Mux {
+	t.Helper()
+
+	l, _ := tu.NewMockLogger()
+	lcfg := tu.NewMockTransLogCfg()
+	tu.FileCleanUp(t, lcfg.LogFileName)
+
+	snapshotter := snapshot.NewFileSnapshotter(
+		tu.NewMockSnapshotsCfg(t.TempDir(), 2),
+		l,
+	)
+	tl := tlog.MustCreateNewFileTransLog(lcfg, l, snapshotter)
+
+	store := store.NewStore(tu.NewMockStoreCfg(), l)
+	tl.Start(t.Context(), &sync.WaitGroup{}, store)
+	return NewTestRouter(store, tl)
 }
 
 func makeReqBasedOnMethod(t testing.TB, method string, key, val string) *http.Request {
