@@ -38,5 +38,5 @@ func main() {
 		app.WithMetrics(m),
 	)
 
-	ap.Serve(":16700")
+	ap.Serve()
 }

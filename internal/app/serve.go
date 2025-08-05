@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
@@ -20,16 +21,17 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
-func (app *application) Serve(addr string) {
+func (app *application) Serve() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
+	addr := fmt.Sprintf("%s:%s", app.cfg.HttpCfg.Host, app.cfg.HttpCfg.Port)
 	s := http.Server{
 		Addr:         addr,
 		Handler:      app.NewRouter(),
-		IdleTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		ReadTimeout:  10 * time.Second,
+		IdleTimeout:  app.cfg.HttpCfg.ServerIdleTimeout,
+		WriteTimeout: app.cfg.HttpCfg.ServerWriteTimeout,
+		ReadTimeout:  app.cfg.HttpCfg.ServerReadTimeout,
 	}
 
 	var wg sync.WaitGroup

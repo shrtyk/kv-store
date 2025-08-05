@@ -15,7 +15,7 @@ func TestFromCtx(t *testing.T) {
 
 	dl.Error("test", ErrorAttr(errors.New("error")))
 
-		lctx := context.WithValue(context.Background(), ctxKey, dl)
+	lctx := ToCtx(context.Background(), dl)
 
 	assert.IsType(t, &slog.Logger{}, FromCtx(lctx))
 	assert.IsType(t, &slog.Logger{}, FromCtx(context.Background()))
