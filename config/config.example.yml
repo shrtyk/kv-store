@@ -32,3 +32,16 @@ snapshots:
   snapshots_dir: "data/snapshots"
   # Maximum number of snapshot files to keep. Older snapshots will be deleted.
   max_snapshots: 2
+
+# Http configuration:
+http_cfg:
+  # Host for the http server
+  host: localhost
+  # Port for the http server
+  port: 16700
+  # Http server idle timeout
+  idle_timeout: 5s
+  # Http server write timeout
+  write_timeout: 10s
+  # Http server read timeout
+  read_timeout: 10s
