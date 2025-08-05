@@ -8,7 +8,7 @@ import (
 
 	"github.com/shrtyk/kv-store/internal/snapshot"
 	"github.com/shrtyk/kv-store/internal/tlog"
-	tu "github.com/shrtyk/kv-store/pkg/testutils"
+	tu "github.com/shrtyk/kv-store/tests/testutils"
 	"github.com/stretchr/testify/assert"
 )
 

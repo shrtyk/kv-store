@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	tu "github.com/shrtyk/kv-store/pkg/testutils"
+	tu "github.com/shrtyk/kv-store/tests/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

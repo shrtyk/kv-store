@@ -16,7 +16,7 @@ run: ## Run the application locally
 	@go run $(CMD_PATH) -cfg_path=$(CONFIG_PATH)
 
 test: ## Run all unit tests
-	@go test ./internal/... ./pkg/... -v
+	@go test ./internal/... ./pkg/... -v -cover
 
 test-cover: ## Run unit tests and generate HTML coverage report
 	@go test ./internal/... ./pkg/... -v -coverprofile=coverage.out

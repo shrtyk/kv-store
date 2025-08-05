@@ -6,7 +6,8 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
-	tutils "github.com/shrtyk/kv-store/pkg/testutils"
+	"github.com/shrtyk/kv-store/pkg/logger"
+	tutils "github.com/shrtyk/kv-store/tests/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -54,4 +55,30 @@ func TestHttpMetrics(t *testing.T) {
 	assert.Equal(t, http.MethodGet, mockMetrics.method)
 	assert.Equal(t, "/test", mockMetrics.path)
 	assert.Greater(t, mockMetrics.latency, 0.0)
+}
+
+func TestLogging(t *testing.T) {
+	l, buf := tutils.NewMockLogger()
+	mws := NewMiddlewares(l, &mockMetrics{})
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		logger := logger.FromCtx(r.Context())
+		logger.Info("test message")
+	})
+
+	router := chi.NewRouter()
+	router.With(mws.Logging).Get("/test", handler)
+
+	req := httptest.NewRequest(http.MethodGet, "/test", nil)
+	req.Header.Set("User-Agent", "test-agent")
+	rr := httptest.NewRecorder()
+
+	router.ServeHTTP(rr, req)
+
+	assert.Contains(t, buf.String(), "test message")
+	assert.Contains(t, buf.String(), "ip")
+	assert.Contains(t, buf.String(), "user-agent")
+	assert.Contains(t, buf.String(), "request_id")
+	assert.Contains(t, buf.String(), "method")
+	assert.Contains(t, buf.String(), "url")
 }

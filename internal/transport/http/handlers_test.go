@@ -15,7 +15,7 @@ import (
 	"github.com/shrtyk/kv-store/internal/store"
 	"github.com/shrtyk/kv-store/internal/tlog"
 	metrics "github.com/shrtyk/kv-store/pkg/prometheus"
-	tu "github.com/shrtyk/kv-store/pkg/testutils"
+	tu "github.com/shrtyk/kv-store/tests/testutils"
 	"github.com/stretchr/testify/assert"
 )
 
