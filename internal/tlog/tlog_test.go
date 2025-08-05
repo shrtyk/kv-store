@@ -178,3 +178,43 @@ func TestLastFsyncWithRetries(t *testing.T) {
 	tl.lastFsyncWithRetries()
 	assert.Equal(t, 1, mockF.syncs)
 }
+
+type mockSnapshotter struct {
+	snapshot.Snapshotter
+	restoreErr     error
+	restoreState   map[string]string
+	findLatestPath string
+	findLatestSeq  uint64
+	findLatestErr  error
+}
+
+func (m *mockSnapshotter) Restore(path string) (map[string]string, error) {
+	return m.restoreState, m.restoreErr
+}
+
+func (m *mockSnapshotter) FindLatest() (string, uint64, error) {
+	return m.findLatestPath, m.findLatestSeq, m.findLatestErr
+}
+
+func TestRestore(t *testing.T) {
+	l, _ := tu.NewMockLogger()
+	lcfg := tu.NewMockTransLogCfg()
+	tu.FileCleanUp(t, lcfg.LogFileName)
+
+	s := store.NewStore(tu.NewMockStoreCfg(), l)
+	snapshotter := &mockSnapshotter{
+		findLatestPath: "test-path",
+		findLatestSeq:  10,
+		restoreState:   map[string]string{"key": "value"},
+	}
+	tl, err := NewFileTransactionalLogger(lcfg, l, snapshotter)
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, tl.Close())
+	}()
+	tl.restore(s)
+	val, err := s.Get("key")
+	assert.NoError(t, err)
+	assert.Equal(t, "value", val)
+	assert.Equal(t, uint64(10), tl.lastSeq)
+}
