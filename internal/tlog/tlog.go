@@ -51,6 +51,15 @@ type TransactionsLogger interface {
 	Close() error
 }
 
+type logFile interface {
+	Sync() error
+	Stat() (os.FileInfo, error)
+	Write([]byte) (int, error)
+	Read([]byte) (int, error)
+	Close() error
+	Name() string
+}
+
 type logger struct {
 	fileMu        sync.Mutex
 	isSnaphotting atomic.Bool
@@ -59,7 +68,7 @@ type logger struct {
 
 	cfg         *cfg.WalCfg
 	log         *slog.Logger
-	file        *os.File
+	file        logFile
 	events      chan event
 	errs        chan error
 	lastSeq     uint64

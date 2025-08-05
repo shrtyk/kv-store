@@ -2,6 +2,8 @@ package tlog
 
 import (
 	"context"
+	"io"
+	"os"
 	"strconv"
 	"sync"
 	"testing"
@@ -126,4 +128,53 @@ func TestSnapshotting(t *testing.T) {
 		assert.True(t, ok, "expected key %s to be in snapshot", key)
 		assert.Equal(t, strconv.Itoa(i+1), val, "incorrect value for key %s", key)
 	}
+}
+
+type mockFile struct {
+	syncErr error
+	syncs   int
+}
+
+func (m *mockFile) Sync() error {
+	m.syncs++
+	return m.syncErr
+}
+
+func (m *mockFile) Stat() (os.FileInfo, error) {
+	return nil, nil
+}
+
+func (m *mockFile) Write([]byte) (int, error) {
+	return 0, nil
+}
+
+func (m *mockFile) Read([]byte) (int, error) {
+	return 0, io.EOF
+}
+
+func (m *mockFile) Close() error {
+	return nil
+}
+
+func (m *mockFile) Name() string {
+	return "mock"
+}
+
+func TestLastFsyncWithRetries(t *testing.T) {
+	l, _ := tu.NewMockLogger()
+	lcfg := tu.NewMockTransLogCfg()
+	mockF := &mockFile{syncErr: assert.AnError}
+	tl := &logger{
+		cfg:  lcfg,
+		log:  l,
+		file: mockF,
+	}
+
+	tl.lastFsyncWithRetries()
+	assert.Equal(t, 3, mockF.syncs)
+
+	mockF.syncs = 0
+	mockF.syncErr = nil
+	tl.lastFsyncWithRetries()
+	assert.Equal(t, 1, mockF.syncs)
 }
