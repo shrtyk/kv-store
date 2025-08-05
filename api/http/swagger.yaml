@@ -4,6 +4,23 @@ info:
   title: KV-Store API
   version: "1.0"
 paths:
+  /healthz:
+    get:
+      description: Health check
+      produces:
+      - text/plain
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Healthz
+      tags:
+      - store
   /v1/{key}:
     delete:
       description: Deletes a value from the store
@@ -14,8 +31,8 @@ paths:
         required: true
         type: string
       responses:
-        "200":
-          description: OK
+        "204":
+          description: No Content
         "500":
           description: Internal Server Error
           schema:
