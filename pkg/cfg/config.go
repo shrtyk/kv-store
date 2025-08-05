@@ -60,7 +60,7 @@ func ReadConfig() *AppConfig {
 	if err := cleanenv.ReadConfig(cfgPath, cfg); err != nil {
 		if envErr := cleanenv.ReadEnv(cfg); envErr != nil {
 			msg := fmt.Sprintf(
-				"couldn't read config data from config file or enviroment variables: %s: %s", err, envErr)
+				"couldn't read config data from config file or environment variables: %s: %s", err, envErr)
 			panic(msg)
 		}
 	}
