@@ -18,11 +18,14 @@ import (
 	"github.com/shrtyk/kv-store/pkg/cfg"
 	"github.com/shrtyk/kv-store/pkg/logger"
 	metrics "github.com/shrtyk/kv-store/pkg/prometheus"
+	tutils "github.com/shrtyk/kv-store/tests/testutils"
 )
 
 func TestE2E(t *testing.T) {
 	ap := app.NewApp()
 	tempDir := t.TempDir()
+	logName := "wal.log"
+	tutils.FileCleanUp(t, logName)
 
 	cfg := &cfg.AppConfig{
 		Env: "dev",
@@ -32,7 +35,7 @@ func TestE2E(t *testing.T) {
 			ShardsCount: 32,
 		},
 		Wal: cfg.WalCfg{
-			LogFileName:        "wal.log",
+			LogFileName:        logName,
 			MaxSizeBytes:       10485760,
 			FsyncIn:            300 * time.Millisecond,
 			FsyncRetriesAmount: 3,
@@ -72,18 +75,18 @@ func TestE2E(t *testing.T) {
 	addr := fmt.Sprintf("http://%s:%s", cfg.HttpCfg.Host, cfg.HttpCfg.Port)
 
 	// wait for the server to start
-	for {
+	require.Eventually(t, func() bool {
 		req, err := http.NewRequest(http.MethodGet, addr+"/healthz", nil)
-		require.NoError(t, err)
-		resp, err := client.Do(req)
-		require.NoError(t, err)
-
-		if resp.StatusCode == 200 {
-			break
+		if err != nil {
+			return false
 		}
-
-		time.Sleep(50 * time.Millisecond)
-	}
+		resp, err := client.Do(req)
+		if err != nil {
+			return false
+		}
+		defer require.NoError(t, resp.Body.Close())
+		return resp.StatusCode == http.StatusOK
+	}, 5*time.Second, 50*time.Millisecond)
 
 	// PUT a key-value pair
 	putReq, err := http.NewRequest(http.MethodPut, addr+"/v1/testkey", strings.NewReader("testvalue"))
