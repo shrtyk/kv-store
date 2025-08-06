@@ -150,22 +150,10 @@ func (l *logger) restore(s Store) {
 		msg := fmt.Sprintf("failed to find latest snapshot: %v", err)
 		panic(msg)
 	}
-
 	if snapshotPath != "" {
-		l.log.Info("restoring from snapshot", slog.String("path", snapshotPath))
-		state, err := l.snapshotter.Restore(snapshotPath)
-		if err != nil {
-			msg := fmt.Sprintf("failed to restore snapshot: %v", err)
-			panic(msg)
-		}
-		for k, v := range state {
-			if err := s.Put(k, v); err != nil {
-				msg := fmt.Sprintf("failed to apply snapshot entry to store: %v", err)
-				panic(msg)
-			}
-		}
-		atomic.StoreUint64(&l.lastSeq, lastSeqFromSnapshot)
+		l.restoreFromSnapshot(s, snapshotPath)
 	}
+	atomic.StoreUint64(&l.lastSeq, lastSeqFromSnapshot)
 
 	// Replay WAL entries created after the snapshot
 	evs, errs := l.ReadEvents()
@@ -191,6 +179,21 @@ func (l *logger) restore(s Store) {
 	}
 	if replayErr != nil && !errors.Is(replayErr, io.EOF) {
 		l.log.Error("unexpected error during WAL replay", sl.ErrorAttr(replayErr))
+	}
+}
+
+func (l *logger) restoreFromSnapshot(s Store, snapPath string) {
+	l.log.Debug("restoring from snapshot", slog.String("path", snapPath))
+	state, err := l.snapshotter.Restore(snapPath)
+	if err != nil {
+		msg := fmt.Sprintf("failed to restore snapshot: %v", err)
+		panic(msg)
+	}
+	for k, v := range state {
+		if err := s.Put(k, v); err != nil {
+			msg := fmt.Sprintf("failed to apply snapshot entry to store: %v", err)
+			panic(msg)
+		}
 	}
 }
 
