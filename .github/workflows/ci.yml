@@ -25,7 +25,7 @@ jobs:
         uses: golangci/golangci-lint-action@v8
 
       - name: Run Tests
-        run: go test ./internal/... ./pkg/... -v -coverprofile=coverage.out
+        run: go test ./internal/... ./pkg/... -v -race -coverprofile=coverage.out
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5

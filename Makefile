@@ -18,6 +18,9 @@ run: ## Run the application locally
 test: ## Run all unit tests
 	@go test ./internal/... ./pkg/... -v -cover
 
+test-race: ## Run all unit tests with -race flag
+	@go test ./internal/... ./pkg/... -v -race
+
 test-cover: ## Run unit tests and generate HTML coverage report
 	@go test ./internal/... ./pkg/... -v -coverprofile=coverage.out
 	@echo "Coverage report generated: coverage.html"
