@@ -45,33 +45,34 @@ func TestTransactionFileLoggger(t *testing.T) {
 	)
 	tl, err := NewFileTransactionalLogger(lcfg, l, snapshotter)
 	require.NoError(t, err)
-	defer func() {
-		assert.NoError(t, tl.Close())
-	}()
 
 	tl.Start(context.Background(), &sync.WaitGroup{}, &mockstore{})
 
 	tl.WritePut(k, v)
 	tl.WritePut(k, v)
-
-	events, errs := tl.ReadEvents()
-	for e := range events {
-		assert.EqualValues(t, k, e.key)
-		assert.EqualValues(t, v, e.value)
-	}
-	assert.NoError(t, <-errs)
 	tl.WaitWritings()
 
+	require.NoError(t, tl.Close())
+	tl, err = NewFileTransactionalLogger(lcfg, l, snapshotter)
+	require.NoError(t, err)
+
+	events, errs := tl.ReadEvents()
+	var count int
+	for e := range events {
+		count++
+		assert.EqualValues(t, k, e.Key)
+		assert.EqualValues(t, v, e.GetValue())
+	}
+	err = <-errs
+	require.NoError(t, err)
+	assert.Equal(t, 2, count)
+
+	// Test appending to existing log
 	ntl := MustCreateNewFileTransLog(lcfg, l, snapshotter)
 	defer func() {
 		assert.NoError(t, ntl.Close())
 	}()
 	ntl.Start(context.Background(), &sync.WaitGroup{}, &mockstore{})
-
-	events, errs = ntl.ReadEvents()
-	for range events {
-	}
-	assert.NoError(t, <-errs)
 
 	ntl.WritePut(k, v)
 	ntl.WritePut(k, v)

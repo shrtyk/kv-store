@@ -3,13 +3,12 @@ package tlog
 import (
 	"bufio"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"os"
-	"strconv"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -17,22 +16,9 @@ import (
 	"github.com/shrtyk/kv-store/internal/snapshot"
 	"github.com/shrtyk/kv-store/pkg/cfg"
 	sl "github.com/shrtyk/kv-store/pkg/logger"
+	pb "github.com/shrtyk/kv-store/proto/log_entries/gen"
+	"google.golang.org/protobuf/proto"
 )
-
-type eventType byte
-
-const (
-	_                  = iota
-	EventPut eventType = iota
-	EventDelete
-)
-
-type event struct {
-	seq   uint64
-	event eventType
-	key   string
-	value string
-}
 
 type Store interface {
 	Delete(key string) error
@@ -46,7 +32,7 @@ type TransactionsLogger interface {
 	WriteDelete(key string)
 	WaitWritings()
 
-	ReadEvents() (<-chan event, <-chan error)
+	ReadEvents() (<-chan *pb.LogEntry, <-chan error)
 	Err() <-chan error
 	Close() error
 }
@@ -69,7 +55,7 @@ type logger struct {
 	cfg         *cfg.WalCfg
 	log         *slog.Logger
 	file        logFile
-	events      chan event
+	events      chan *pb.LogEntry
 	errs        chan error
 	lastSeq     uint64
 	snapshotter snapshot.Snapshotter
@@ -99,7 +85,7 @@ func MustCreateNewFileTransLog(cfg *cfg.WalCfg, l *slog.Logger, s snapshot.Snaps
 }
 
 func (l *logger) Start(ctx context.Context, wg *sync.WaitGroup, s Store) {
-	l.events = make(chan event, 16)
+	l.events = make(chan *pb.LogEntry, 16)
 	l.errs = make(chan error, 1)
 	l.restore(s)
 
@@ -117,10 +103,23 @@ func (l *logger) Start(ctx context.Context, wg *sync.WaitGroup, s Store) {
 				if !ok {
 					return
 				}
-				newSeq := atomic.AddUint64(&l.lastSeq, 1)
+				e.Id = atomic.AddUint64(&l.lastSeq, 1)
+
+				data, err := proto.Marshal(e)
+				if err != nil {
+					l.errs <- err
+					l.writingsWg.Done()
+					return
+				}
 
 				l.fileMu.Lock()
-				_, writeErr := fmt.Fprintf(l.file, "%d\t%d\t%s\t%s\n", newSeq, e.event, e.key, e.value)
+				if err := binary.Write(l.file, binary.LittleEndian, uint32(len(data))); err != nil {
+					l.fileMu.Unlock()
+					l.errs <- err
+					l.writingsWg.Done()
+					return
+				}
+				_, writeErr := l.file.Write(data)
 				stat, statErr := l.file.Stat()
 				l.fileMu.Unlock()
 
@@ -157,7 +156,7 @@ func (l *logger) restore(s Store) {
 
 	// Replay WAL entries created after the snapshot
 	evs, errs := l.ReadEvents()
-	e := event{}
+	var e *pb.LogEntry
 	ok := true
 	var replayErr error
 	for ok && replayErr == nil {
@@ -167,12 +166,12 @@ func (l *logger) restore(s Store) {
 			if !ok {
 				continue
 			}
-			if e.seq > lastSeqFromSnapshot {
-				switch e.event {
-				case EventDelete:
-					replayErr = s.Delete(e.key)
-				case EventPut:
-					replayErr = s.Put(e.key, e.value)
+			if e.Id > lastSeqFromSnapshot {
+				switch e.Op {
+				case pb.OpType_DELETE:
+					replayErr = s.Delete(e.Key)
+				case pb.OpType_PUT:
+					replayErr = s.Put(e.Key, e.GetValue())
 				}
 			}
 		}
@@ -197,51 +196,38 @@ func (l *logger) restoreFromSnapshot(s Store, snapPath string) {
 	}
 }
 
-func (l *logger) ReadEvents() (<-chan event, <-chan error) {
-	scanner := bufio.NewScanner(l.file)
-	outEvent := make(chan event)
-	outErr := make(chan error)
+func (l *logger) ReadEvents() (<-chan *pb.LogEntry, <-chan error) {
+	outEvent := make(chan *pb.LogEntry)
+	outErr := make(chan error, 1)
 
 	go func() {
-		var e event
+		defer close(outEvent)
+		defer close(outErr)
 
-		defer func() {
-			close(outEvent)
-			close(outErr)
-		}()
-
-		for scanner.Scan() {
-			line := scanner.Text()
-			parts := strings.Split(line, "\t")
-			if len(parts) < 3 {
-				l.log.Warn("not enough parts in log line", slog.String("line", line))
-				continue
-			}
-			seq, err := strconv.ParseUint(parts[0], 10, 64)
-			if err != nil {
-				outErr <- err
+		reader := bufio.NewReader(l.file)
+		for {
+			var length uint32
+			if err := binary.Read(reader, binary.LittleEndian, &length); err != nil {
+				if err != io.EOF {
+					outErr <- fmt.Errorf("failed to read transaction log header: %w", err)
+				}
 				return
 			}
-			e.seq = seq
 
-			evt, err := strconv.Atoi(parts[1])
-			if err != nil {
-				outErr <- err
+			data := make([]byte, length)
+			if _, err := io.ReadFull(reader, data); err != nil {
+				outErr <- fmt.Errorf("failed to read transaction log data: %w", err)
 				return
 			}
-			e.event = eventType(evt)
-			e.key = parts[2]
-			if len(parts) > 3 {
-				e.value = parts[3]
+
+			e := &pb.LogEntry{}
+			if err := proto.Unmarshal(data, e); err != nil {
+				outErr <- fmt.Errorf("failed to unmarshal transaction log entry: %w", err)
+				return
 			}
 
-			atomic.StoreUint64(&l.lastSeq, e.seq)
+			atomic.StoreUint64(&l.lastSeq, e.Id)
 			outEvent <- e
-		}
-
-		if err := scanner.Err(); err != nil {
-			outErr <- fmt.Errorf("failed to read transaction log: %w", err)
-			return
 		}
 	}()
 
@@ -250,12 +236,12 @@ func (l *logger) ReadEvents() (<-chan event, <-chan error) {
 
 func (l *logger) WritePut(key, val string) {
 	l.writingsWg.Add(1)
-	l.events <- event{event: EventPut, key: key, value: val}
+	l.events <- &pb.LogEntry{Op: pb.OpType_PUT, Key: key, Value: &val}
 }
 
 func (l *logger) WriteDelete(key string) {
 	l.writingsWg.Add(1)
-	l.events <- event{event: EventDelete, key: key}
+	l.events <- &pb.LogEntry{Op: pb.OpType_DELETE, Key: key}
 }
 
 func (l *logger) Err() <-chan error {
@@ -380,48 +366,36 @@ func (l *logger) applyLogToState(sourceName string, state map[string]string) (la
 		}
 	}()
 
-	s := bufio.NewScanner(sourceFile)
-	for s.Scan() {
-		var e event
-		line := s.Text()
-		parts := strings.Split(line, "\t")
-		if len(parts) < 3 {
-			l.log.Warn("not enough parts", slog.String("line", line))
-			continue
+	reader := bufio.NewReader(sourceFile)
+	for {
+		var length uint32
+		if err := binary.Read(reader, binary.LittleEndian, &length); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return 0, fmt.Errorf("failed to read message length from wal for snapshotting: %w", err)
 		}
 
-		seq, err := strconv.ParseUint(parts[0], 10, 64)
-		if err != nil {
-			l.log.Warn("invalid sequence number", slog.String("line", line), sl.ErrorAttr(err))
-			continue
-		}
-		e.seq = seq
-		if e.seq > lastSeq {
-			lastSeq = e.seq
+		data := make([]byte, length)
+		if _, err := io.ReadFull(reader, data); err != nil {
+			return 0, fmt.Errorf("failed to read message data from wal for snapshotting: %w", err)
 		}
 
-		eType, err := strconv.Atoi(parts[1])
-		if err != nil {
-			l.log.Warn("invalid event type", slog.String("line", line), sl.ErrorAttr(err))
-			continue
-		}
-		e.event = eventType(eType)
-		e.key = parts[2]
-
-		if len(parts) > 3 {
-			e.value = parts[3]
+		e := &pb.LogEntry{}
+		if err := proto.Unmarshal(data, e); err != nil {
+			return 0, fmt.Errorf("failed to unmarshal log entry for snapshotting: %w", err)
 		}
 
-		switch e.event {
-		case EventPut:
-			state[e.key] = e.value
-		case EventDelete:
-			delete(state, e.key)
+		if e.Id > lastSeq {
+			lastSeq = e.Id
 		}
-	}
 
-	if err = s.Err(); err != nil {
-		return 0, fmt.Errorf("failed to scan source log for snapshotting: %w", err)
+		switch e.Op {
+		case pb.OpType_PUT:
+			state[e.Key] = e.GetValue()
+		case pb.OpType_DELETE:
+			delete(state, e.Key)
+		}
 	}
 
 	return lastSeq, nil
