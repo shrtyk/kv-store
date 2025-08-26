@@ -25,11 +25,14 @@ jobs:
         uses: golangci/golangci-lint-action@v8
 
       - name: Run Tests
-        run: go test ./internal/... ./pkg/... -v -race -coverprofile=coverage.out
+        run: |
+          mkdir -p coverage
+          go test -v -race -coverprofile=coverage/coverage.out -covermode=atomic \
+          $(go list ./... | grep -v /mocks | grep -v /gen)
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          file: ./coverage.out
+          file: coverage/coverage.out
           fail_ci_if_error: true

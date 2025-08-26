@@ -7,6 +7,8 @@ CONFIG_PATH=./config/config.yml
 # Docker parameters
 DOCKER_IMAGE_NAME=kv-store
 
+UNIT_TESTS_PKGS := $(shell go list ./... | grep -v /mocks | grep -v /gen)
+
 .PHONY: help build run test test-cover test-perf lint clean docker-build docker-up docker-down swag
 
 build: ## Build the Go binary
@@ -16,10 +18,9 @@ run: ## Run the application locally
 	@go run $(CMD_PATH) -cfg_path=$(CONFIG_PATH)
 
 test: ## Run all unit tests
-	@go test ./internal/... ./pkg/... -v -cover
-
-test-race: ## Run all unit tests with -race flag
-	@go test ./internal/... ./pkg/... -v -race
+	@mkdir -p coverage
+	@go test -v -race \
+    -coverprofile=coverage/coverage.out -covermode=atomic ${UNIT_TESTS_PKGS}
 
 test-cover: ## Run unit tests and generate HTML coverage report
 	@go test ./internal/... ./pkg/... -v -coverprofile=coverage.out
