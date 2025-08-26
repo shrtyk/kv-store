@@ -11,8 +11,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/shrtyk/kv-store/internal/cfg"
 	"github.com/shrtyk/kv-store/internal/core/ports/metrics"
-	"github.com/shrtyk/kv-store/internal/core/store"
-	"github.com/shrtyk/kv-store/internal/core/tlog"
+	"github.com/shrtyk/kv-store/internal/core/ports/store"
+	"github.com/shrtyk/kv-store/internal/core/ports/tlog"
 	"github.com/shrtyk/kv-store/pkg/logger"
 )
 

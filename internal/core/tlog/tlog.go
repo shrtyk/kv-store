@@ -14,20 +14,15 @@ import (
 	"time"
 
 	"github.com/shrtyk/kv-store/internal/cfg"
+	"github.com/shrtyk/kv-store/internal/core/ports/store"
 	"github.com/shrtyk/kv-store/internal/core/snapshot"
 	sl "github.com/shrtyk/kv-store/pkg/logger"
 	pb "github.com/shrtyk/kv-store/proto/log_entries/gen"
 	"google.golang.org/protobuf/proto"
 )
 
-type Store interface {
-	Delete(key string) error
-	Put(key, val string) error
-	Items() map[string]string
-}
-
 type TransactionsLogger interface {
-	Start(ctx context.Context, wg *sync.WaitGroup, s Store)
+	Start(ctx context.Context, wg *sync.WaitGroup, s store.Store)
 	WritePut(key, val string)
 	WriteDelete(key string)
 	WaitWritings()
@@ -84,7 +79,7 @@ func MustCreateNewFileTransLog(cfg *cfg.WalCfg, l *slog.Logger, s snapshot.Snaps
 	return tl
 }
 
-func (l *logger) Start(ctx context.Context, wg *sync.WaitGroup, s Store) {
+func (l *logger) Start(ctx context.Context, wg *sync.WaitGroup, s store.Store) {
 	l.events = make(chan *pb.LogEntry, 16)
 	l.errs = make(chan error, 1)
 	l.restore(s)
@@ -142,7 +137,7 @@ func (l *logger) Start(ctx context.Context, wg *sync.WaitGroup, s Store) {
 	}()
 }
 
-func (l *logger) restore(s Store) {
+func (l *logger) restore(s store.Store) {
 	// Find and restore from the latest snapshot
 	snapshotPath, lastSeqFromSnapshot, err := l.snapshotter.FindLatest()
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -181,7 +176,7 @@ func (l *logger) restore(s Store) {
 	}
 }
 
-func (l *logger) restoreFromSnapshot(s Store, snapPath string) {
+func (l *logger) restoreFromSnapshot(s store.Store, snapPath string) {
 	l.log.Debug("restoring from snapshot", slog.String("path", snapPath))
 	state, err := l.snapshotter.Restore(snapPath)
 	if err != nil {
@@ -260,7 +255,7 @@ func (l *logger) WaitWritings() {
 	l.writingsWg.Wait()
 }
 
-func (l *logger) snapshot(s Store) {
+func (l *logger) snapshot(s store.Store) {
 	if !l.isSnaphotting.CompareAndSwap(false, true) {
 		l.log.Debug("snapshotting is already in progress")
 		return
@@ -269,7 +264,7 @@ func (l *logger) snapshot(s Store) {
 	go l.runSnapshotSupervisor(s)
 }
 
-func (l *logger) runSnapshotSupervisor(s Store) {
+func (l *logger) runSnapshotSupervisor(s store.Store) {
 	defer l.snapshotWg.Done()
 	defer l.isSnaphotting.Store(false)
 	l.log.Info("starting snapshot supervisor")
@@ -292,7 +287,7 @@ func (l *logger) runSnapshotSupervisor(s Store) {
 	}
 }
 
-func (l *logger) runSnapshotCreation(s Store, ech chan<- error) {
+func (l *logger) runSnapshotCreation(s store.Store, ech chan<- error) {
 	defer l.snapshotWg.Done()
 	defer close(ech)
 
@@ -438,7 +433,7 @@ func (l *logger) lastFsyncWithRetries() {
 			time.Sleep(l.cfg.FsyncRetryIn)
 			continue
 		}
-		l.log.Info("successfully completed fsync. fsyncer stopped")
-		break
+			l.log.Info("successfully completed fsync. fsyncer stopped")
+			break
 	}
 }

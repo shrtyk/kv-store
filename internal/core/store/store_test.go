@@ -8,6 +8,7 @@ import (
 
 	"github.com/shrtyk/kv-store/internal/core/snapshot"
 	"github.com/shrtyk/kv-store/internal/core/tlog"
+	pstore "github.com/shrtyk/kv-store/internal/core/ports/store"
 	tu "github.com/shrtyk/kv-store/internal/tests/testutils"
 	"github.com/stretchr/testify/assert"
 )
@@ -29,7 +30,7 @@ func TestStore(t *testing.T) {
 	tl.Start(t.Context(), &sync.WaitGroup{}, s)
 
 	_, err := s.Get(k)
-	assert.ErrorIs(t, err, ErrNoSuchKey)
+	assert.ErrorIs(t, err, pstore.ErrNoSuchKey)
 
 	err = s.Put(k, v)
 	assert.NoError(t, err)
@@ -46,13 +47,13 @@ func TestStore(t *testing.T) {
 	err = s.Delete(k)
 	assert.NoError(t, err)
 	_, err = s.Get(k)
-	assert.ErrorIs(t, err, ErrNoSuchKey)
+	assert.ErrorIs(t, err, pstore.ErrNoSuchKey)
 
 	lString := largeString(s.cfg.MaxKeySize, s.cfg.MaxValSize)
 	err = s.Put(lString, "val")
-	assert.ErrorIs(t, err, ErrKeyTooLarge)
+	assert.ErrorIs(t, err, pstore.ErrKeyTooLarge)
 	err = s.Put("key", lString)
-	assert.ErrorIs(t, err, ErrValueTooLarge)
+	assert.ErrorIs(t, err, pstore.ErrValueTooLarge)
 
 	assert.NoError(t, tl.Close())
 }

@@ -2,7 +2,6 @@ package httphandlers
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -11,6 +10,10 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	pstore "github.com/shrtyk/kv-store/internal/core/ports/store"
+	storemocks "github.com/shrtyk/kv-store/internal/core/ports/store/mocks"
+	ptlog "github.com/shrtyk/kv-store/internal/core/ports/tlog"
+	tlogmocks "github.com/shrtyk/kv-store/internal/core/ports/tlog/mocks"
 	"github.com/shrtyk/kv-store/internal/core/snapshot"
 	"github.com/shrtyk/kv-store/internal/core/store"
 	"github.com/shrtyk/kv-store/internal/core/tlog"
@@ -45,7 +48,7 @@ func subTestTemplate(router http.Handler, c testCase) subtest {
 	}
 }
 
-func NewTestRouter(s store.Store, tl tlog.TransactionsLogger) *chi.Mux {
+func NewTestRouter(s pstore.Store, tl ptlog.TransactionsLogger) *chi.Mux {
 	hh := NewHandlersProvider(
 		tu.NewMockStoreCfg(),
 		s,
@@ -74,9 +77,9 @@ func TestHandlers(t *testing.T) {
 	)
 	tl := tlog.MustCreateNewFileTransLog(lcfg, l, snapshotter)
 
-	store := store.NewStore(tu.NewMockStoreCfg(), l)
-	tl.Start(t.Context(), &sync.WaitGroup{}, store)
-	router := NewTestRouter(store, tl)
+	appstore := store.NewStore(tu.NewMockStoreCfg(), l)
+	tl.Start(t.Context(), &sync.WaitGroup{}, appstore)
+	router := NewTestRouter(appstore, tl)
 
 	testCases := []testCase{
 		{
@@ -135,52 +138,22 @@ func TestHandlers(t *testing.T) {
 	assert.NoError(t, tl.Close())
 }
 
-type mockStore struct {
-	errOnPut    error
-	errOnGet    error
-	errOnDelete error
-}
-
-func (m *mockStore) StartMapRebuilder(ctx context.Context, wg *sync.WaitGroup) {
-}
-
-func (m *mockStore) Put(key, value string) error {
-	return m.errOnPut
-}
-
-func (m *mockStore) Get(key string) (string, error) {
-	return "", m.errOnGet
-}
-
-func (m *mockStore) Delete(key string) error {
-	return m.errOnDelete
-}
-
-func (m *mockStore) Items() map[string]string {
-	return nil
-}
-
 func TestInternalErrWithMocks(t *testing.T) {
-	l, _ := tu.NewMockLogger()
-	lcfg := tu.NewMockTransLogCfg()
-	tu.FileCleanUp(t, lcfg.LogFileName)
-
 	msg := "a simulated store error"
 	mockErr := errors.New(msg)
-	s := &mockStore{
-		errOnPut:    mockErr,
-		errOnGet:    mockErr,
-		errOnDelete: mockErr,
-	}
 
 	k, v := "any-key", "any-val"
-	snapshotter := snapshot.NewFileSnapshotter(
-		tu.NewMockSnapshotsCfg(t.TempDir(), 2),
-		l,
-	)
-	tl := tlog.MustCreateNewFileTransLog(lcfg, l, snapshotter)
-	tl.Start(t.Context(), &sync.WaitGroup{}, s)
-	mockRouter := NewTestRouter(s, tl)
+
+	mockStore := storemocks.NewMockStore(t)
+	mockStore.EXPECT().Put(k, v).Return(mockErr).Maybe()
+	mockStore.EXPECT().Get(k).Return("", mockErr).Maybe()
+	mockStore.EXPECT().Delete(k).Return(mockErr).Maybe()
+
+	mockTLog := tlogmocks.NewMockTransactionsLogger(t)
+	mockTLog.EXPECT().WritePut(k, v).Return().Maybe()
+	mockTLog.EXPECT().WriteDelete(k).Return().Maybe()
+
+	mockRouter := NewTestRouter(mockStore, mockTLog)
 
 	errorTestCases := []struct {
 		testName string
@@ -217,8 +190,6 @@ func TestInternalErrWithMocks(t *testing.T) {
 	for _, c := range errorTestCases {
 		t.Run(c.testName, subTestTemplate(mockRouter, c))
 	}
-	tl.WaitWritings()
-	assert.NoError(t, tl.Close())
 }
 
 func TestHealthz(t *testing.T) {
@@ -250,9 +221,9 @@ func testRouter(t *testing.T) *chi.Mux {
 	)
 	tl := tlog.MustCreateNewFileTransLog(lcfg, l, snapshotter)
 
-	store := store.NewStore(tu.NewMockStoreCfg(), l)
-	tl.Start(t.Context(), &sync.WaitGroup{}, store)
-	return NewTestRouter(store, tl)
+	appstore := store.NewStore(tu.NewMockStoreCfg(), l)
+	tl.Start(t.Context(), &sync.WaitGroup{}, appstore)
+	return NewTestRouter(appstore, tl)
 }
 
 func makeReqBasedOnMethod(t testing.TB, method string, key, val string) *http.Request {

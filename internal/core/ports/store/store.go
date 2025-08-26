@@ -2,7 +2,14 @@ package store
 
 import (
 	"context"
+	"errors"
 	"sync"
+)
+
+var (
+	ErrNoSuchKey     = errors.New("no such key")
+	ErrKeyTooLarge   = errors.New("key too large")
+	ErrValueTooLarge = errors.New("value too large")
 )
 
 //go:generate mockery

@@ -13,9 +13,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	_ "github.com/shrtyk/kv-store/api/http"
+	_ "github.com/shrtyk/kv-store/api/openapi"
 	"github.com/shrtyk/kv-store/internal/api/grpc"
-	transport "github.com/shrtyk/kv-store/internal/api/http"
+	appHttp "github.com/shrtyk/kv-store/internal/api/http"
 	mw "github.com/shrtyk/kv-store/internal/api/http/middleware"
 	"github.com/shrtyk/kv-store/pkg/logger"
 	httpSwagger "github.com/swaggo/http-swagger"
@@ -88,7 +88,7 @@ type Middlewares interface {
 }
 
 func (app *application) NewRouter() *chi.Mux {
-	var handlers HandlersProvider = transport.NewHandlersProvider(&app.cfg.Store, app.store, app.tl, app.metrics)
+	var handlers HandlersProvider = appHttp.NewHandlersProvider(&app.cfg.Store, app.store, app.tl, app.metrics)
 	var mws Middlewares = mw.NewMiddlewares(app.logger, app.metrics)
 
 	mux := chi.NewMux()

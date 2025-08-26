@@ -7,7 +7,7 @@ CONFIG_PATH=./config/config.yml
 # Docker parameters
 DOCKER_IMAGE_NAME=kv-store
 
-UNIT_TESTS_PKGS := $(shell go list ./... | grep -v /mocks | grep -v /gen)
+UNIT_TESTS_PKGS := $(shell go list ./... | grep -v /mocks | grep -v /gen | grep -v /openapi)
 
 .PHONY: help build run test test-cover test-perf lint clean docker-build docker-up docker-down swag
 
@@ -35,7 +35,7 @@ lint: ## Lint the Go code using golangci-lint
 	@golangci-lint run ./...
 
 swag: ## Regenerate OpenAPI documentation
-	@swag init -g cmd/app/main.go -o api/http
+	@swag init -g cmd/app/main.go -o api/openapi
 
 clean: ## Clean up build artifacts and coverage reports
 	@rm -f $(BINARY_NAME)

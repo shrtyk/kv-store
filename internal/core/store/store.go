@@ -2,17 +2,11 @@ package store
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"sync"
 
 	"github.com/shrtyk/kv-store/internal/cfg"
-)
-
-var (
-	ErrNoSuchKey     = errors.New("no such key")
-	ErrKeyTooLarge   = errors.New("key too large")
-	ErrValueTooLarge = errors.New("value too large")
+	pstore "github.com/shrtyk/kv-store/internal/core/ports/store"
 )
 
 type store struct {
@@ -32,10 +26,10 @@ func NewStore(cfg *cfg.StoreCfg, l *slog.Logger) *store {
 
 func (s *store) Put(key, value string) error {
 	if len(key) > s.cfg.MaxKeySize {
-		return ErrKeyTooLarge
+		return pstore.ErrKeyTooLarge
 	}
 	if len(value) > s.cfg.MaxValSize {
-		return ErrValueTooLarge
+		return pstore.ErrValueTooLarge
 	}
 	s.storage.Put(key, value)
 	return nil
@@ -44,7 +38,7 @@ func (s *store) Put(key, value string) error {
 func (s *store) Get(key string) (string, error) {
 	val, ok := s.storage.Get(key)
 	if !ok {
-		return "", ErrNoSuchKey
+		return "", pstore.ErrNoSuchKey
 	}
 	return val, nil
 }

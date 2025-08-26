@@ -7,8 +7,8 @@ import (
 	"net"
 	"sync"
 
-	"github.com/shrtyk/kv-store/internal/core/store"
-	"github.com/shrtyk/kv-store/internal/core/tlog"
+	"github.com/shrtyk/kv-store/internal/core/ports/store"
+	"github.com/shrtyk/kv-store/internal/core/ports/tlog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/shrtyk/kv-store/internal/core/store"
+	"github.com/shrtyk/kv-store/internal/core/ports/store"
 	pb "github.com/shrtyk/kv-store/proto/grpc/gen"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
