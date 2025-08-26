@@ -1,13 +1,12 @@
 package main
 
 import (
-	"github.com/shrtyk/kv-store/internal/app"
-	"github.com/shrtyk/kv-store/internal/snapshot"
-	"github.com/shrtyk/kv-store/internal/store"
-	"github.com/shrtyk/kv-store/internal/tlog"
-	"github.com/shrtyk/kv-store/pkg/cfg"
+	"github.com/shrtyk/kv-store/internal/cfg"
+	"github.com/shrtyk/kv-store/internal/core/snapshot"
+	"github.com/shrtyk/kv-store/internal/core/store"
+	"github.com/shrtyk/kv-store/internal/core/tlog"
+	pmts "github.com/shrtyk/kv-store/internal/infrastructure/prometheus"
 	log "github.com/shrtyk/kv-store/pkg/logger"
-	metrics "github.com/shrtyk/kv-store/pkg/prometheus"
 )
 
 // @title           KV-Store API
@@ -26,16 +25,16 @@ func main() {
 		}
 	}()
 
-	m := metrics.NewPrometheusMetrics()
+	m := pmts.NewPrometheusMetrics()
 	st := store.NewStore(&cfg.Store, logger)
 
-	ap := app.NewApp()
+	ap := NewApp()
 	ap.Init(
-		app.WithCfg(cfg),
-		app.WithStore(st),
-		app.WithTransactionalLogger(tl),
-		app.WithLogger(logger),
-		app.WithMetrics(m),
+		WithCfg(cfg),
+		WithStore(st),
+		WithTransactionalLogger(tl),
+		WithLogger(logger),
+		WithMetrics(m),
 	)
 
 	ap.Serve()
