@@ -24,7 +24,7 @@ func NewLogger(env string) (log *slog.Logger) {
 		log = slog.New(slog.NewJSONHandler(
 			os.Stdout,
 			&slog.HandlerOptions{
-				AddSource: false,
+				AddSource: true,
 				Level:     slog.LevelDebug,
 			}),
 		)
@@ -32,7 +32,7 @@ func NewLogger(env string) (log *slog.Logger) {
 		log = slog.New(slog.NewJSONHandler(
 			os.Stdout,
 			&slog.HandlerOptions{
-				AddSource: true,
+				AddSource: false,
 				Level:     slog.LevelInfo,
 			}),
 		)

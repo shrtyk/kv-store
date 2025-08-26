@@ -7,15 +7,12 @@ import (
 	"time"
 
 	"github.com/ilyakaznacheev/cleanenv"
-	"github.com/joho/godotenv"
 )
 
 var path string
 
 func init() {
 	flag.StringVar(&path, "cfg_path", "", "Path to config file")
-
-	_ = godotenv.Load()
 }
 
 type AppConfig struct {

@@ -15,8 +15,8 @@ import (
 	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	_ "github.com/shrtyk/kv-store/api/http"
-	mw "github.com/shrtyk/kv-store/internal/middleware"
 	transport "github.com/shrtyk/kv-store/internal/transport/http"
+	mw "github.com/shrtyk/kv-store/internal/transport/http/middleware"
 	"github.com/shrtyk/kv-store/pkg/logger"
 	httpSwagger "github.com/swaggo/http-swagger"
 )
