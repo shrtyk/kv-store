@@ -32,7 +32,7 @@ func TestNewPrometheusMetrics(t *testing.T) {
 }
 
 func TestMetricsPut(t *testing.T) {
-	m.Put("test_key", 0.1)
+	m.HttpPut("test_key", 0.1)
 
 	metric := &dto.Metric{}
 	err := m.putsCounter.WithLabelValues("test_key").Write(metric)
@@ -48,7 +48,7 @@ func TestMetricsPut(t *testing.T) {
 }
 
 func TestMetricsDelete(t *testing.T) {
-	m.Delete("test_key", 0.1)
+	m.HttpDelete("test_key", 0.1)
 
 	metric := &dto.Metric{}
 	err := m.deleteCounter.WithLabelValues("test_key").Write(metric)
@@ -64,7 +64,7 @@ func TestMetricsDelete(t *testing.T) {
 }
 
 func TestMetricsGet(t *testing.T) {
-	m.Get("test_key", 0.1)
+	m.HttpGet("test_key", 0.1)
 
 	metric := &dto.Metric{}
 	err := m.getCounter.WithLabelValues("test_key").Write(metric)
@@ -99,8 +99,8 @@ func TestMockMetrics(t *testing.T) {
 	mock := NewMockMetrics()
 	assert.NotNil(t, mock)
 
-	mock.Put("key", 0.1)
-	mock.Delete("key", 0.1)
-	mock.Get("key", 0.1)
+	mock.HttpPut("key", 0.1)
+	mock.HttpDelete("key", 0.1)
+	mock.HttpGet("key", 0.1)
 	mock.HttpRequest(200, "GET", "/path", 0.1)
 }
