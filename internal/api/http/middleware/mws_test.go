@@ -10,6 +10,7 @@ import (
 	"github.com/shrtyk/kv-store/pkg/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
 )
 
 type mockMetrics struct {
@@ -31,9 +32,10 @@ func (m *mockMetrics) HttpRequest(code int, method, path string, latency float64
 	m.path = path
 	m.latency = latency
 }
-func (m *mockMetrics) HttpPut(key string, duration float64)    {}
-func (m *mockMetrics) HttpDelete(key string, duration float64) {}
-func (m *mockMetrics) HttpGet(key string, duration float64)    {}
+func (m *mockMetrics) GrpcRequest(code codes.Code, service, method string, latency float64) {}
+func (m *mockMetrics) HttpPut(key string, duration float64)                                 {}
+func (m *mockMetrics) HttpDelete(key string, duration float64)                              {}
+func (m *mockMetrics) HttpGet(key string, duration float64)                                 {}
 
 func TestHttpMetrics(t *testing.T) {
 	l, _ := tutils.NewMockLogger()

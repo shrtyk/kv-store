@@ -6,6 +6,7 @@ package metricsmocks
 
 import (
 	mock "github.com/stretchr/testify/mock"
+	"google.golang.org/grpc/codes"
 )
 
 // NewMockMetrics creates a new instance of MockMetrics. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
@@ -169,6 +170,64 @@ func (_c *MockMetrics_GrpcPut_Call) Return() *MockMetrics_GrpcPut_Call {
 }
 
 func (_c *MockMetrics_GrpcPut_Call) RunAndReturn(run func(key string, duration float64)) *MockMetrics_GrpcPut_Call {
+	_c.Run(run)
+	return _c
+}
+
+// GrpcRequest provides a mock function for the type MockMetrics
+func (_mock *MockMetrics) GrpcRequest(code codes.Code, service string, method string, latency float64) {
+	_mock.Called(code, service, method, latency)
+	return
+}
+
+// MockMetrics_GrpcRequest_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GrpcRequest'
+type MockMetrics_GrpcRequest_Call struct {
+	*mock.Call
+}
+
+// GrpcRequest is a helper method to define mock.On call
+//   - code codes.Code
+//   - service string
+//   - method string
+//   - latency float64
+func (_e *MockMetrics_Expecter) GrpcRequest(code interface{}, service interface{}, method interface{}, latency interface{}) *MockMetrics_GrpcRequest_Call {
+	return &MockMetrics_GrpcRequest_Call{Call: _e.mock.On("GrpcRequest", code, service, method, latency)}
+}
+
+func (_c *MockMetrics_GrpcRequest_Call) Run(run func(code codes.Code, service string, method string, latency float64)) *MockMetrics_GrpcRequest_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 codes.Code
+		if args[0] != nil {
+			arg0 = args[0].(codes.Code)
+		}
+		var arg1 string
+		if args[1] != nil {
+			arg1 = args[1].(string)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 float64
+		if args[3] != nil {
+			arg3 = args[3].(float64)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMetrics_GrpcRequest_Call) Return() *MockMetrics_GrpcRequest_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockMetrics_GrpcRequest_Call) RunAndReturn(run func(code codes.Code, service string, method string, latency float64)) *MockMetrics_GrpcRequest_Call {
 	_c.Run(run)
 	return _c
 }

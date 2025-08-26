@@ -3,17 +3,21 @@ package metrics
 import (
 	"net/http"
 	"os"
+	"strconv"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
 )
 
 var m *metrics
 
 func TestMain(m_ *testing.M) {
+	// Unregister all collectors before running tests to avoid panics from re-registration.
+	prometheus.DefaultRegisterer = prometheus.NewRegistry()
 	m = NewPrometheusMetrics()
 	code := m_.Run()
 	os.Exit(code)
@@ -21,78 +25,119 @@ func TestMain(m_ *testing.M) {
 
 func TestNewPrometheusMetrics(t *testing.T) {
 	assert.NotNil(t, m)
-	assert.NotNil(t, m.httpRequests)
-	assert.NotNil(t, m.httpRequestsHistogram)
-	assert.NotNil(t, m.putsCounter)
-	assert.NotNil(t, m.deleteCounter)
-	assert.NotNil(t, m.getCounter)
-	assert.NotNil(t, m.putHistogram)
-	assert.NotNil(t, m.delHistogram)
-	assert.NotNil(t, m.getHistogram)
+	assert.NotNil(t, m.requests)
+	assert.NotNil(t, m.requestsHistogram)
+	assert.NotNil(t, m.kvOperationsCounter)
+	assert.NotNil(t, m.kvOperationsHistogram)
 }
 
-func TestMetricsPut(t *testing.T) {
-	m.HttpPut("test_key", 0.1)
+func TestKvOperations(t *testing.T) {
+	m.kvOperationsCounter.Reset()
+	m.kvOperationsHistogram.Reset()
 
+	// HTTP Put
+	m.HttpPut("test_key_put", 0.1)
 	metric := &dto.Metric{}
-	err := m.putsCounter.WithLabelValues("test_key").Write(metric)
+	err := m.kvOperationsCounter.WithLabelValues(string(httpApi), string(putOp), "test_key_put").Write(metric)
 	require.NoError(t, err)
 	assert.Equal(t, float64(1), metric.Counter.GetValue())
-
 	metric.Reset()
-	err = m.putHistogram.Write(metric)
+	hist := m.kvOperationsHistogram.WithLabelValues(string(httpApi), string(putOp))
+	err = hist.(prometheus.Metric).Write(metric)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(1), metric.Histogram.GetSampleCount())
 
-	prometheus.Unregister(m.putsCounter)
-}
-
-func TestMetricsDelete(t *testing.T) {
-	m.HttpDelete("test_key", 0.1)
-
-	metric := &dto.Metric{}
-	err := m.deleteCounter.WithLabelValues("test_key").Write(metric)
+	// HTTP Delete
+	m.HttpDelete("test_key_del", 0.1)
+	metric.Reset()
+	err = m.kvOperationsCounter.WithLabelValues(string(httpApi), string(deleteOp), "test_key_del").Write(metric)
 	require.NoError(t, err)
 	assert.Equal(t, float64(1), metric.Counter.GetValue())
-
 	metric.Reset()
-	err = m.delHistogram.Write(metric)
+	hist = m.kvOperationsHistogram.WithLabelValues(string(httpApi), string(deleteOp))
+	err = hist.(prometheus.Metric).Write(metric)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(1), metric.Histogram.GetSampleCount())
 
-	prometheus.Unregister(m.deleteCounter)
-}
-
-func TestMetricsGet(t *testing.T) {
-	m.HttpGet("test_key", 0.1)
-
-	metric := &dto.Metric{}
-	err := m.getCounter.WithLabelValues("test_key").Write(metric)
+	// HTTP Get
+	m.HttpGet("test_key_get", 0.1)
+	metric.Reset()
+	err = m.kvOperationsCounter.WithLabelValues(string(httpApi), string(getOp), "test_key_get").Write(metric)
 	require.NoError(t, err)
 	assert.Equal(t, float64(1), metric.Counter.GetValue())
-
 	metric.Reset()
-	err = m.getHistogram.Write(metric)
+	hist = m.kvOperationsHistogram.WithLabelValues(string(httpApi), string(getOp))
+	err = hist.(prometheus.Metric).Write(metric)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(1), metric.Histogram.GetSampleCount())
 
-	prometheus.Unregister(m.getCounter)
+	// GRPC Put
+	m.GrpcPut("test_key_put_grpc", 0.1)
+	metric.Reset()
+	err = m.kvOperationsCounter.WithLabelValues(string(grpcApi), string(putOp), "test_key_put_grpc").Write(metric)
+	require.NoError(t, err)
+	assert.Equal(t, float64(1), metric.Counter.GetValue())
+	metric.Reset()
+	hist = m.kvOperationsHistogram.WithLabelValues(string(grpcApi), string(putOp))
+	err = hist.(prometheus.Metric).Write(metric)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(1), metric.Histogram.GetSampleCount())
+
+	// GRPC Delete
+	m.GrpcDelete("test_key_del_grpc", 0.1)
+	metric.Reset()
+	err = m.kvOperationsCounter.WithLabelValues(string(grpcApi), string(deleteOp), "test_key_del_grpc").Write(metric)
+	require.NoError(t, err)
+	assert.Equal(t, float64(1), metric.Counter.GetValue())
+	metric.Reset()
+	hist = m.kvOperationsHistogram.WithLabelValues(string(grpcApi), string(deleteOp))
+	err = hist.(prometheus.Metric).Write(metric)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(1), metric.Histogram.GetSampleCount())
+
+	// GRPC Get
+	m.GrpcGet("test_key_get_grpc", 0.1)
+	metric.Reset()
+	err = m.kvOperationsCounter.WithLabelValues(string(grpcApi), string(getOp), "test_key_get_grpc").Write(metric)
+	require.NoError(t, err)
+	assert.Equal(t, float64(1), metric.Counter.GetValue())
+	metric.Reset()
+	hist = m.kvOperationsHistogram.WithLabelValues(string(grpcApi), string(getOp))
+	err = hist.(prometheus.Metric).Write(metric)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(1), metric.Histogram.GetSampleCount())
 }
 
-func TestMetricsHttpRequest(t *testing.T) {
+func TestRequestMetrics(t *testing.T) {
+	m.requests.Reset()
+	m.requestsHistogram.Reset()
+
+	// HTTP Request
 	m.HttpRequest(http.StatusOK, http.MethodGet, "/test", 0.1)
-
 	metric := &dto.Metric{}
-	err := m.httpRequests.WithLabelValues("200", "GET", "/test").Write(metric)
+	httpLabels := []string{string(httpApi), strconv.Itoa(http.StatusOK), http.MethodGet, "/test"}
+	err := m.requests.WithLabelValues(httpLabels...).Write(metric)
 	require.NoError(t, err)
 	assert.Equal(t, float64(1), metric.Counter.GetValue())
 
 	metric.Reset()
-	err = m.httpRequestsHistogram.Write(metric)
+	hist := m.requestsHistogram.WithLabelValues(httpLabels...)
+	err = hist.(prometheus.Metric).Write(metric)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(1), metric.Histogram.GetSampleCount())
 
-	prometheus.Unregister(m.httpRequests)
+	// gRPC Request
+	m.GrpcRequest(codes.OK, "TestService", "TestMethod", 0.1)
+	grpcLabels := []string{string(grpcApi), codes.OK.String(), "TestMethod", "TestService"}
+	err = m.requests.WithLabelValues(grpcLabels...).Write(metric)
+	require.NoError(t, err)
+	assert.Equal(t, float64(1), metric.Counter.GetValue())
+
+	metric.Reset()
+	hist = m.requestsHistogram.WithLabelValues(grpcLabels...)
+	err = hist.(prometheus.Metric).Write(metric)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(1), metric.Histogram.GetSampleCount())
 }
 
 func TestMockMetrics(t *testing.T) {
@@ -102,5 +147,9 @@ func TestMockMetrics(t *testing.T) {
 	mock.HttpPut("key", 0.1)
 	mock.HttpDelete("key", 0.1)
 	mock.HttpGet("key", 0.1)
+	mock.GrpcPut("key", 0.1)
+	mock.GrpcDelete("key", 0.1)
+	mock.GrpcGet("key", 0.1)
 	mock.HttpRequest(200, "GET", "/path", 0.1)
+	mock.GrpcRequest(codes.OK, "service", "method", 0.1)
 }

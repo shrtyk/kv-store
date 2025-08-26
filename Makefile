@@ -7,7 +7,7 @@ CONFIG_PATH=./config/config.yml
 # Docker parameters
 DOCKER_IMAGE_NAME=kv-store
 
-UNIT_TESTS_PKGS := $(shell go list ./... | grep -v /mocks | grep -v /gen | grep -v /openapi)
+UNIT_TESTS_PKGS := $(shell go list ./... | grep -v /mocks | grep -v /gen | grep -v /openapi | grep -v /testutils)
 
 .PHONY: help build run test test-cover test-perf lint clean docker-build docker-up docker-down swag
 
