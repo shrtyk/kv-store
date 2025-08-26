@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package entries.v1;
+
+option go_package = "github.com/shrtyk/kv-store/proto/gen;entries_v1";
+
+enum OpType {
+  UNKNOWN = 0;
+  DELETE = 1;
+  PUT = 2;
+}
+
+message LogEntry {
+  uint64 id = 1;
+  OpType op = 2;
+  string key = 3;
+  optional string value = 4;
+}
