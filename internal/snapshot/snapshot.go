@@ -2,7 +2,9 @@ package snapshot
 
 import (
 	"bufio"
+	"encoding/binary"
 	"fmt"
+	"io"
 	"io/fs"
 	"log/slog"
 	"os"
@@ -14,6 +16,8 @@ import (
 
 	"github.com/shrtyk/kv-store/pkg/cfg"
 	"github.com/shrtyk/kv-store/pkg/logger"
+	pb "github.com/shrtyk/kv-store/proto/grpc/gen"
+	"google.golang.org/protobuf/proto"
 )
 
 type Snapshotter interface {
@@ -50,14 +54,35 @@ func (s *FileSnapshotter) Create(state map[string]string, lastSeq uint64) (strin
 		}
 	}()
 
+	writer := bufio.NewWriter(file)
+
 	for k, v := range state {
-		_, err := fmt.Fprintf(file, "%s\t%s\n", k, v)
+		entry := &pb.Entry{Key: k, Value: v}
+		data, err := proto.Marshal(entry)
 		if err != nil {
 			if rerr := os.Remove(fileName); rerr != nil {
-				return "", fmt.Errorf("failed to delete partially written snapshot: %w: initial error: %w", rerr, err)
+				return "", fmt.Errorf("failed to delete partially written snapshot after marshal error: %w: initial error: %w", rerr, err)
 			}
-			return "", fmt.Errorf("failed to write to snapshot file: %w", err)
+			return "", fmt.Errorf("failed to marshal snapshot entry: %w", err)
 		}
+
+		if err := binary.Write(writer, binary.LittleEndian, uint32(len(data))); err != nil {
+			if rerr := os.Remove(fileName); rerr != nil {
+				return "", fmt.Errorf("failed to delete partially written snapshot after length write error: %w: initial error: %w", rerr, err)
+			}
+			return "", fmt.Errorf("failed to write entry length to snapshot: %w", err)
+		}
+
+		if _, err := writer.Write(data); err != nil {
+			if rerr := os.Remove(fileName); rerr != nil {
+				return "", fmt.Errorf("failed to delete partially written snapshot after data write error: %w: initial error: %w", rerr, err)
+			}
+			return "", fmt.Errorf("failed to write entry data to snapshot: %w", err)
+		}
+	}
+
+	if err := writer.Flush(); err != nil {
+		return "", fmt.Errorf("failed to flush snapshot writer: %w", err)
 	}
 
 	if err = s.tryCleanupSnapshots(); err != nil {
@@ -185,20 +210,27 @@ func (s *FileSnapshotter) Restore(path string) (map[string]string, error) {
 	}()
 
 	state := make(map[string]string)
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		parts := strings.Split(line, "\t")
-		if len(parts) != 2 {
-			// potential empty lines or malformed data
-			s.logger.Warn("malformed data in snapshot file", slog.String("line", line))
-			continue
-		}
-		state[parts[0]] = parts[1]
-	}
+	reader := bufio.NewReader(file)
 
-	if err := scanner.Err(); err != nil {
-		return nil, fmt.Errorf("failed to read snapshot file: %w", err)
+	for {
+		var length uint32
+		if err := binary.Read(reader, binary.LittleEndian, &length); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, fmt.Errorf("failed to read snapshot entry length: %w", err)
+		}
+
+		data := make([]byte, length)
+		if _, err := io.ReadFull(reader, data); err != nil {
+			return nil, fmt.Errorf("failed to read snapshot entry data: %w", err)
+		}
+
+		entry := &pb.Entry{}
+		if err := proto.Unmarshal(data, entry); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal snapshot entry: %w", err)
+		}
+		state[entry.Key] = entry.Value
 	}
 
 	return state, nil

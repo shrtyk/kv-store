@@ -2,7 +2,6 @@ package snapshot
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -62,35 +61,6 @@ func TestFileSnapshotter(t *testing.T) {
 	restoredState2, err := snapshotter.Restore(snapshotPath2)
 	require.NoError(t, err)
 	assert.Equal(t, state2, restoredState2)
-}
-
-func TestRestoreWithMalformedData(t *testing.T) {
-	l, _ := tu.NewMockLogger()
-	tempDir := t.TempDir()
-	snapshotter := NewFileSnapshotter(
-		tu.NewMockSnapshotsCfg(tempDir, 2),
-		l,
-	)
-
-	// Create a snapshot file with some malformed lines
-	snapshotPath := filepath.Join(tempDir, "malformed.dat")
-	content := `key1	value1
-key2	value2
-malformed_line
-
-key3	value3`
-	err := os.WriteFile(snapshotPath, []byte(content), 0644)
-	require.NoError(t, err)
-
-	expectedState := map[string]string{
-		"key1": "value1",
-		"key2": "value2",
-		"key3": "value3",
-	}
-
-	restoredState, err := snapshotter.Restore(snapshotPath)
-	require.NoError(t, err)
-	assert.Equal(t, expectedState, restoredState)
 }
 
 func TestFindLatest_MultipleSnapshots(t *testing.T) {
