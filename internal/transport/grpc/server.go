@@ -7,6 +7,7 @@ import (
 	"net"
 	"sync"
 
+	"github.com/shrtyk/kv-store/internal/store"
 	"github.com/shrtyk/kv-store/internal/tlog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
@@ -19,6 +20,8 @@ import (
 type Server struct {
 	wg       *sync.WaitGroup
 	cfg      *cfg.GRPCCfg
+	stCfg    *cfg.StoreCfg
+	store    store.Store
 	tl       tlog.TransactionsLogger
 	metrics  metrics.Metrics
 	logger   *slog.Logger
@@ -30,6 +33,8 @@ type Server struct {
 func NewGRPCServer(
 	wg *sync.WaitGroup,
 	cfg *cfg.GRPCCfg,
+	stCfg *cfg.StoreCfg,
+	store store.Store,
 	tl tlog.TransactionsLogger,
 	metrics metrics.Metrics,
 	logger *slog.Logger,
@@ -37,6 +42,8 @@ func NewGRPCServer(
 	s := &Server{
 		wg:       wg,
 		cfg:      cfg,
+		stCfg:    stCfg,
+		store:    store,
 		tl:       tl,
 		metrics:  metrics,
 		logger:   logger,
