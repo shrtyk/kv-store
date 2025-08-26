@@ -1,4 +1,4 @@
-package tutils
+package testutils
 
 import (
 	"bytes"

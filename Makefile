@@ -48,3 +48,19 @@ docker-up: ## Start services with Docker Compose in detached mode
 
 docker-down: ## Stop and remove services started with Docker Compose
 	@docker-compose down
+
+# Recompile grpc proto
+proto-grpc/compile:
+	@mkdir -p proto/grpc/gen
+	@protoc -I ./proto/grpc \
+	--go_out ./proto/grpc/gen --go_opt=paths=source_relative \
+	--go-grpc_out ./proto/grpc/gen --go-grpc_opt=paths=source_relative \
+	./proto/grpc/kv-store.proto
+
+# Recompile grpc proto
+proto-entries/compile:
+	@mkdir -p proto/log_entries/gen
+	@protoc -I ./proto/log_entries \
+	--go_out ./proto/log_entries/gen --go_opt=paths=source_relative \
+	--go-grpc_out ./proto/log_entries/gen --go-grpc_opt=paths=source_relative \
+	./proto/log_entries/entries.proto

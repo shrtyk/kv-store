@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
@@ -15,6 +14,7 @@ import (
 	chimw "github.com/go-chi/chi/v5/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	_ "github.com/shrtyk/kv-store/api/http"
+	"github.com/shrtyk/kv-store/internal/transport/grpc"
 	transport "github.com/shrtyk/kv-store/internal/transport/http"
 	mw "github.com/shrtyk/kv-store/internal/transport/http/middleware"
 	"github.com/shrtyk/kv-store/pkg/logger"
@@ -22,19 +22,26 @@ import (
 )
 
 func (app *application) Serve() {
+	var wg sync.WaitGroup
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	addr := fmt.Sprintf("%s:%s", app.cfg.HttpCfg.Host, app.cfg.HttpCfg.Port)
-	s := http.Server{
-		Addr:         addr,
+	httpServ := http.Server{
+		Addr:         ":" + app.cfg.HttpCfg.Port,
 		Handler:      app.NewRouter(),
 		IdleTimeout:  app.cfg.HttpCfg.ServerIdleTimeout,
 		WriteTimeout: app.cfg.HttpCfg.ServerWriteTimeout,
 		ReadTimeout:  app.cfg.HttpCfg.ServerReadTimeout,
 	}
-
-	var wg sync.WaitGroup
+	grpcServ := grpc.NewGRPCServer(
+		&wg,
+		&app.cfg.GRPCCfg,
+		&app.cfg.Store,
+		app.store,
+		app.tl,
+		app.metrics,
+		app.logger,
+	)
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -44,15 +51,18 @@ func (app *application) Serve() {
 		defer tCancel()
 
 		app.logger.Info("got a signal to stop work. executing graceful shutdown")
-		errCh <- s.Shutdown(tCtx)
+
+		errCh <- grpcServ.Shutdown(tCtx)
+		errCh <- httpServ.Shutdown(tCtx)
 		close(errCh)
 	}()
 
 	app.tl.Start(ctx, &wg, app.store)
-	app.store.StartMapRebuilder(ctx, &wg)
 
-	app.logger.Info("listening", slog.String("addr", addr))
-	if err := s.ListenAndServe(); err != http.ErrServerClosed {
+	app.logger.Info("grpc listening", slog.String("port", app.cfg.GRPCCfg.Port))
+	grpcServ.MustStart()
+	app.logger.Info("http listening", slog.String("port", app.cfg.HttpCfg.Port))
+	if err := httpServ.ListenAndServe(); err != http.ErrServerClosed {
 		log.Fatalf("server failed to start: %v", err)
 	}
 

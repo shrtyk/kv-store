@@ -18,6 +18,10 @@ env: "test"
 store:
   max_key: 1024
   max_val: 4096
+http_cfg:
+  port: "8080"
+grpc:
+  port: "8081"
 `
 	validConfigPath := filepath.Join(tempDir, "valid.yaml")
 	err := os.WriteFile(validConfigPath, []byte(validConfigContent), 0644)

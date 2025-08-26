@@ -1,6 +1,6 @@
 # Environment: "dev" or "production"
 # In "dev" mode, logging is more verbose.
-env: "dev"
+env: "production"
 
 # Store configuration
 store:
@@ -34,7 +34,7 @@ snapshots:
   max_snapshots: 2
 
 # Http configuration:
-http_cfg:
+http:
   # Host for the http server
   host: localhost
   # Port for the http server
@@ -45,3 +45,8 @@ http_cfg:
   write_timeout: 10s
   # Http server read timeout
   read_timeout: 10s
+
+# Grpc configuration:
+grpc:
+  # Port for the grpc server
+  port: 16701

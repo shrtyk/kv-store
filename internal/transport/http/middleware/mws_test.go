@@ -20,6 +20,10 @@ type mockMetrics struct {
 	latency float64
 }
 
+func (m *mockMetrics) GrpcPut(key string, duration float64)    {}
+func (m *mockMetrics) GrpcDelete(key string, duration float64) {}
+func (m *mockMetrics) GrpcGet(key string, duration float64)    {}
+
 func (m *mockMetrics) HttpRequest(code int, method, path string, latency float64) {
 	m.called = true
 	m.code = code
@@ -27,9 +31,9 @@ func (m *mockMetrics) HttpRequest(code int, method, path string, latency float64
 	m.path = path
 	m.latency = latency
 }
-func (m *mockMetrics) Put(key string, duration float64)    {}
-func (m *mockMetrics) Delete(key string, duration float64) {}
-func (m *mockMetrics) Get(key string, duration float64)    {}
+func (m *mockMetrics) HttpPut(key string, duration float64)    {}
+func (m *mockMetrics) HttpDelete(key string, duration float64) {}
+func (m *mockMetrics) HttpGet(key string, duration float64)    {}
 
 func TestHttpMetrics(t *testing.T) {
 	l, _ := tutils.NewMockLogger()

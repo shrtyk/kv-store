@@ -8,9 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/shrtyk/kv-store/internal/app"
 	"github.com/shrtyk/kv-store/internal/snapshot"
 	"github.com/shrtyk/kv-store/internal/store"
@@ -19,6 +16,8 @@ import (
 	"github.com/shrtyk/kv-store/pkg/logger"
 	metrics "github.com/shrtyk/kv-store/pkg/prometheus"
 	tutils "github.com/shrtyk/kv-store/tests/testutils"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestE2E(t *testing.T) {
@@ -52,19 +51,22 @@ func TestE2E(t *testing.T) {
 			ServerWriteTimeout: 10 * time.Second,
 			ServerReadTimeout:  10 * time.Second,
 		},
+		GRPCCfg: cfg.GRPCCfg{
+			Port: "16702",
+		},
 	}
 	l := logger.NewLogger(cfg.Env)
-	store := store.NewStore(&cfg.Store, l)
+	st := store.NewStore(&cfg.Store, l)
 	snapshotter := snapshot.NewFileSnapshotter(&cfg.Snapshots, l)
 	tl := tlog.MustCreateNewFileTransLog(&cfg.Wal, l, snapshotter)
-	metrics := metrics.NewMockMetrics()
+	metric := metrics.NewMockMetrics()
 
 	ap.Init(
 		app.WithCfg(cfg),
 		app.WithLogger(l),
-		app.WithStore(store),
+		app.WithStore(st),
 		app.WithTransactionalLogger(tl),
-		app.WithMetrics(metrics),
+		app.WithMetrics(metric),
 	)
 
 	go func() {

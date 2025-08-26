@@ -20,7 +20,8 @@ type AppConfig struct {
 	Store     StoreCfg     `yaml:"store"`
 	Wal       WalCfg       `yaml:"transactional_logger"`
 	Snapshots SnapshotsCfg `yaml:"snapshots"`
-	HttpCfg   HttpCfg      `yaml:"http_cfg"`
+	HttpCfg   HttpCfg      `yaml:"http"`
+	GRPCCfg   GRPCCfg      `yaml:"grpc"`
 }
 
 type StoreCfg struct {
@@ -43,11 +44,15 @@ type SnapshotsCfg struct {
 }
 
 type HttpCfg struct {
-	Host               string        `yaml:"host" env:"HOST" env-default:"localhost"`
-	Port               string        `yaml:"port" env:"PORT" env-default:"16700"`
-	ServerIdleTimeout  time.Duration `yaml:"idle_timeout" env:"IDLE_TIMEOUT" env-default:"5s"`
-	ServerWriteTimeout time.Duration `yaml:"write_timeout" env:"WRITE_TIMEOUT" env-default:"10s"`
-	ServerReadTimeout  time.Duration `yaml:"read_timeout" env:"READ_TIMEOUT" env-default:"10s"`
+	Host               string        `yaml:"host" env:"HTTP_HOST" env-default:"localhost"`
+	Port               string        `yaml:"port" env:"HTTP_PORT" env-default:"16700"`
+	ServerIdleTimeout  time.Duration `yaml:"idle_timeout" env:"HTTP_IDLE_TIMEOUT" env-default:"5s"`
+	ServerWriteTimeout time.Duration `yaml:"write_timeout" env:"HTTP_WRITE_TIMEOUT" env-default:"10s"`
+	ServerReadTimeout  time.Duration `yaml:"read_timeout" env:"HTTP_READ_TIMEOUT" env-default:"10s"`
+}
+
+type GRPCCfg struct {
+	Port string `yaml:"port" env:"GRPC_PORT" env-default:"3000"`
 }
 
 func ReadConfig() *AppConfig {

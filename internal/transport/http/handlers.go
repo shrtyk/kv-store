@@ -105,7 +105,7 @@ func (h *handlersProvider) PutHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusCreated)
 
-	h.metrics.Put(key, time.Since(start).Seconds())
+	h.metrics.HttpPut(key, time.Since(start).Seconds())
 	l.Debug(
 		"Put operation successfully completed",
 		slog.String("key", key),
@@ -144,7 +144,7 @@ func (h *handlersProvider) GetHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.metrics.Get(key, time.Since(start).Seconds())
+	h.metrics.HttpGet(key, time.Since(start).Seconds())
 	l.Debug(
 		"Get operation successfully completed",
 		slog.String("key", key),
@@ -172,6 +172,6 @@ func (h *handlersProvider) DeleteHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	h.metrics.Delete(key, time.Since(start).Seconds())
+	h.metrics.HttpDelete(key, time.Since(start).Seconds())
 	l.Debug("Delete operation successfully completed", slog.String("key", key))
 }
