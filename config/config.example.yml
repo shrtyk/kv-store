@@ -23,6 +23,8 @@ shards:
   min_operations_until_rebuild: 2000
   # Min delete operation to trigger shard rebuild
   min_deletes: 500
+  # Amount of workers which will rebuild shards in background
+  rebuild_workers_count: 4
 
 # Write-Ahead Log (WAL) configuration
 transactional_logger:

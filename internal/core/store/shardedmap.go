@@ -24,9 +24,9 @@ type Shard struct {
 }
 
 type ShardedMap struct {
-	shards     []*Shard
-	hash       Hasher
-	checksFreq time.Duration
+	shardsCfg *cfg.ShardsCfg
+	shards    []*Shard
+	hash      Hasher
 }
 
 func (s *Shard) needsRebuild() bool {
@@ -79,9 +79,9 @@ func NewShardedMap(shardsCfg *cfg.ShardsCfg, shardsCount int, hasher Hasher) *Sh
 	}
 
 	return &ShardedMap{
-		shards:     shards,
-		hash:       hasher,
-		checksFreq: shardsCfg.CheckFreq,
+		shards:    shards,
+		hash:      hasher,
+		shardsCfg: shardsCfg,
 	}
 }
 
@@ -141,8 +141,18 @@ func (m *ShardedMap) Items() map[string]string {
 }
 
 func (m *ShardedMap) StartShardsSupervisor(ctx context.Context, wg *sync.WaitGroup) {
-	t := time.NewTicker(m.checksFreq)
+	ch := make(chan *Shard, 1)
+	wg.Add(m.shardsCfg.WorkersCount)
+	for range m.shardsCfg.WorkersCount {
+		go func() {
+			defer wg.Done()
+			for shard := range ch {
+				shard.rebuild()
+			}
+		}()
+	}
 
+	t := time.NewTicker(m.shardsCfg.CheckFreq)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -150,11 +160,12 @@ func (m *ShardedMap) StartShardsSupervisor(ctx context.Context, wg *sync.WaitGro
 		for {
 			select {
 			case <-ctx.Done():
+				close(ch)
 				return
 			case <-t.C:
 				for _, shard := range m.shards {
 					if shard.needsRebuild() {
-						shard.rebuild()
+						ch <- shard
 					}
 				}
 			}

@@ -159,6 +159,7 @@ func TestShardsSupervisor(t *testing.T) {
 		SparseRatio:        0.5,
 		MinOpsUntilRebuild: 200,
 		MinDeletes:         100,
+		WorkersCount:       4,
 	}
 	m := NewShardedMap(shardsCfg, 1, &mockHasher{})
 	shard := m.shards[0]

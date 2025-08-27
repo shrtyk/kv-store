@@ -36,6 +36,7 @@ type ShardsCfg struct {
 	SparseRatio        float64       `yaml:"sparse_ratio" env:"SHARDS_SPARSE_RATIO" env-default:"0.5"`
 	MinOpsUntilRebuild int           `yaml:"min_operations_until_rebuild" env:"SHARDS_MIN_OPS_UNTIL_REBUILD" env-default:"2000"`
 	MinDeletes         int           `yaml:"min_deletes" env:"SHARDS_MIN_DELETES" env-default:"500"`
+	WorkersCount       int           `yaml:"rebuild_workers_count" env:"SHARDS_REBUILD_WORKERS_COUNT" env-default:"4"`
 }
 
 type WalCfg struct {

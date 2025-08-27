@@ -67,7 +67,7 @@ func (app *application) Serve(ctx context.Context, wg *sync.WaitGroup) {
 	}
 
 	wg.Wait()
-	app.logger.Info("server stopped")
+	app.logger.Info("application stopped")
 }
 
 type HandlersProvider interface {
