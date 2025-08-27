@@ -6,6 +6,7 @@ package app
 import (
 	"bytes"
 	"net/http"
+	"sync"
 	"testing"
 	"time"
 
@@ -16,58 +17,100 @@ import (
 func TestFunctional_BulkPutDeletePerformance(t *testing.T) {
 	const (
 		baseURL        = "http://localhost:16700/v1"
-		putRequests    = 10000
-		deleteRequests = 6666
-		keySize        = 50
-		valueSize      = 50
+		putRequests    = 1000000
+		deleteRequests = 666666
+		keySize        = 100
+		valueSize      = 100
+		workersCount   = 1000
 	)
 
-	client := &http.Client{}
-	keysCreated := make([]string, 0, putRequests)
+	transport := &http.Transport{
+		MaxIdleConns:        workersCount,
+		MaxIdleConnsPerHost: workersCount,
+	}
+	client := &http.Client{Transport: transport}
 
-	// PUT Phase
-	t.Logf("Starting bulk PUT test with %d requests...", putRequests)
+	keys := make([]string, putRequests)
+	values := make([]string, putRequests)
+	for i := 0; i < putRequests; i++ {
+		keys[i] = tutils.RandomString(t, keySize)
+		values[i] = tutils.RandomString(t, valueSize)
+	}
+
+	t.Logf("Starting performance test with %d workers...", workersCount)
+
+	// --- PUT Phase ---
+	t.Logf("Starting concurrent bulk PUT test with %d requests...", putRequests)
+
+	putJobs := make(chan int, putRequests)
+	var wgPut sync.WaitGroup
+
+	for w := 0; w < workersCount; w++ {
+		wgPut.Add(1)
+		go func() {
+			defer wgPut.Done()
+			for i := range putJobs {
+				key := keys[i]
+				value := values[i]
+				url := baseURL + "/" + key
+
+				req, err := http.NewRequest(http.MethodPut, url, bytes.NewBufferString(value))
+				require.NoError(t, err)
+
+				resp, err := client.Do(req)
+				require.NoError(t, err)
+				require.NoError(t, resp.Body.Close())
+				require.Equal(t, http.StatusCreated, resp.StatusCode)
+			}
+		}()
+	}
+
 	putStart := time.Now()
 
-	for range putRequests {
-		key := tutils.RandomString(t, keySize)
-		value := tutils.RandomString(t, valueSize)
-		url := baseURL + "/" + key
-
-		req, err := http.NewRequest(http.MethodPut, url, bytes.NewBufferString(value))
-		require.NoError(t, err, "Failed to create request")
-
-		resp, err := client.Do(req)
-		require.NoError(t, err, "Request failed")
-		require.NoError(t, resp.Body.Close())
-
-		require.Equal(t, http.StatusCreated, resp.StatusCode, "Expected status 201 Created for key %s", key)
-		keysCreated = append(keysCreated, key)
+	for i := 0; i < putRequests; i++ {
+		putJobs <- i
 	}
+	close(putJobs)
 
+	wgPut.Wait()
 	putDuration := time.Since(putStart)
 	t.Logf("Finished %d PUT requests in %s", putRequests, putDuration)
-	t.Logf("Average time per PUT request: %s", putDuration/time.Duration(putRequests))
+	t.Logf("Average throughput (PUT): %.2f req/s", float64(putRequests)/putDuration.Seconds())
 
-	// DELETE Phase
-	t.Logf("Starting bulk DELETE test with %d requests...", deleteRequests)
-	deleteStart := time.Now()
+	// --- DELETE Phase ---
+	t.Logf("Starting concurrent bulk DELETE test with %d requests...", workersCount)
 
-	for i := range deleteRequests {
-		key := keysCreated[i]
-		url := baseURL + "/" + key
+	deleteJobs := make(chan int, deleteRequests)
+	var wgDelete sync.WaitGroup
 
-		req, err := http.NewRequest(http.MethodDelete, url, nil)
-		require.NoError(t, err, "Failed to create request")
+	for w := 0; w < workersCount; w++ {
+		wgDelete.Add(1)
+		go func() {
+			defer wgDelete.Done()
+			for i := range deleteJobs {
+				key := keys[i]
+				url := baseURL + "/" + key
 
-		resp, err := client.Do(req)
-		require.NoError(t, err, "Request failed")
-		require.NoError(t, resp.Body.Close())
+				req, err := http.NewRequest(http.MethodDelete, url, nil)
+				require.NoError(t, err)
 
-		require.Equal(t, http.StatusOK, resp.StatusCode, "Expected status 200 OK for deleting key %s", key)
+				resp, err := client.Do(req)
+				require.NoError(t, err)
+				require.NoError(t, resp.Body.Close())
+				require.Equal(t, http.StatusOK, resp.StatusCode)
+			}
+		}()
 	}
 
+	deleteStart := time.Now()
+
+	for i := 0; i < deleteRequests; i++ {
+		deleteJobs <- i
+	}
+	close(deleteJobs)
+
+	wgDelete.Wait()
 	deleteDuration := time.Since(deleteStart)
 	t.Logf("Finished %d DELETE requests in %s", deleteRequests, deleteDuration)
-	t.Logf("Average time per DELETE request: %s", deleteDuration/time.Duration(deleteRequests))
+	t.Logf("Average throughput (DELETE): %.2f req/s", float64(deleteRequests)/deleteDuration.Seconds())
 }
