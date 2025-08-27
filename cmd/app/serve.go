@@ -88,6 +88,8 @@ func (app *application) NewRouter() *chi.Mux {
 
 	mux := chi.NewMux()
 
+	mux.Mount("/debug", chimw.Profiler())
+
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.Get("/swagger/*", httpSwagger.WrapHandler)
 	mux.Get("/healthz", handlers.Healthz)

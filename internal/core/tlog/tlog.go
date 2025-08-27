@@ -267,7 +267,7 @@ func (l *logger) snapshot(s store.Store) {
 func (l *logger) runSnapshotSupervisor(s store.Store) {
 	defer l.snapshotWg.Done()
 	defer l.isSnaphotting.Store(false)
-	l.log.Info("starting snapshot supervisor")
+	l.log.Debug("starting snapshot supervisor")
 
 	for {
 		errCh := make(chan error, 1)
@@ -282,7 +282,7 @@ func (l *logger) runSnapshotSupervisor(s store.Store) {
 			continue
 		}
 
-		l.log.Info("snapshot creation completed, supervisor exiting")
+		l.log.Debug("snapshot creation completed, supervisor exiting")
 		return
 	}
 }
@@ -291,7 +291,7 @@ func (l *logger) runSnapshotCreation(s store.Store, ech chan<- error) {
 	defer l.snapshotWg.Done()
 	defer close(ech)
 
-	l.log.Info("transaction log compaction and snapshotting running")
+	l.log.Debug("transaction log compaction and snapshotting running")
 
 	latestSnapshotPath, _, err := l.snapshotter.FindLatest()
 	var compactedMap map[string]string
@@ -433,7 +433,7 @@ func (l *logger) lastFsyncWithRetries() {
 			time.Sleep(l.cfg.FsyncRetryIn)
 			continue
 		}
-			l.log.Info("successfully completed fsync. fsyncer stopped")
-			break
+		l.log.Info("successfully completed fsync. fsyncer stopped")
+		break
 	}
 }

@@ -38,7 +38,7 @@ func TestKvOperations(t *testing.T) {
 	// HTTP Put
 	m.HttpPut("test_key_put", 0.1)
 	metric := &dto.Metric{}
-	err := m.kvOperationsCounter.WithLabelValues(string(httpApi), string(putOp), "test_key_put").Write(metric)
+	err := m.kvOperationsCounter.WithLabelValues(string(httpApi), string(putOp)).Write(metric)
 	require.NoError(t, err)
 	assert.Equal(t, float64(1), metric.Counter.GetValue())
 	metric.Reset()
@@ -50,7 +50,7 @@ func TestKvOperations(t *testing.T) {
 	// HTTP Delete
 	m.HttpDelete("test_key_del", 0.1)
 	metric.Reset()
-	err = m.kvOperationsCounter.WithLabelValues(string(httpApi), string(deleteOp), "test_key_del").Write(metric)
+	err = m.kvOperationsCounter.WithLabelValues(string(httpApi), string(deleteOp)).Write(metric)
 	require.NoError(t, err)
 	assert.Equal(t, float64(1), metric.Counter.GetValue())
 	metric.Reset()
@@ -62,7 +62,7 @@ func TestKvOperations(t *testing.T) {
 	// HTTP Get
 	m.HttpGet("test_key_get", 0.1)
 	metric.Reset()
-	err = m.kvOperationsCounter.WithLabelValues(string(httpApi), string(getOp), "test_key_get").Write(metric)
+	err = m.kvOperationsCounter.WithLabelValues(string(httpApi), string(getOp)).Write(metric)
 	require.NoError(t, err)
 	assert.Equal(t, float64(1), metric.Counter.GetValue())
 	metric.Reset()
@@ -74,7 +74,7 @@ func TestKvOperations(t *testing.T) {
 	// GRPC Put
 	m.GrpcPut("test_key_put_grpc", 0.1)
 	metric.Reset()
-	err = m.kvOperationsCounter.WithLabelValues(string(grpcApi), string(putOp), "test_key_put_grpc").Write(metric)
+	err = m.kvOperationsCounter.WithLabelValues(string(grpcApi), string(putOp)).Write(metric)
 	require.NoError(t, err)
 	assert.Equal(t, float64(1), metric.Counter.GetValue())
 	metric.Reset()
@@ -86,7 +86,7 @@ func TestKvOperations(t *testing.T) {
 	// GRPC Delete
 	m.GrpcDelete("test_key_del_grpc", 0.1)
 	metric.Reset()
-	err = m.kvOperationsCounter.WithLabelValues(string(grpcApi), string(deleteOp), "test_key_del_grpc").Write(metric)
+	err = m.kvOperationsCounter.WithLabelValues(string(grpcApi), string(deleteOp)).Write(metric)
 	require.NoError(t, err)
 	assert.Equal(t, float64(1), metric.Counter.GetValue())
 	metric.Reset()
@@ -98,7 +98,7 @@ func TestKvOperations(t *testing.T) {
 	// GRPC Get
 	m.GrpcGet("test_key_get_grpc", 0.1)
 	metric.Reset()
-	err = m.kvOperationsCounter.WithLabelValues(string(grpcApi), string(getOp), "test_key_get_grpc").Write(metric)
+	err = m.kvOperationsCounter.WithLabelValues(string(grpcApi), string(getOp)).Write(metric)
 	require.NoError(t, err)
 	assert.Equal(t, float64(1), metric.Counter.GetValue())
 	metric.Reset()

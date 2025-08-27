@@ -140,7 +140,7 @@ func (s *FileSnapshotter) tryCleanupSnapshots() error {
 
 	// loop over all "old" snapshots covers case with delete failures in last cleanup
 	for _, snap := range snaps[:len(snaps)-s.maxSnapshots] {
-		s.logger.Info("deleting old snapshot", slog.String("path", snap.path))
+		s.logger.Debug("deleting old snapshot", slog.String("path", snap.path))
 		if err := os.Remove(snap.path); err != nil {
 			s.logger.Warn("failed to delete old snapshot", slog.String("path", snap.path), logger.ErrorAttr(err))
 		}

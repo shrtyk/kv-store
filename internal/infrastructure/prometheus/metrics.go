@@ -34,7 +34,7 @@ func NewPrometheusMetrics() *metrics {
 	opsCounter := p.NewCounterVec(p.CounterOpts{
 		Name: "kv_operations_total",
 		Help: "The total number of kv operations",
-	}, []string{"transport", "operation", "key"})
+	}, []string{"transport", "operation"})
 
 	opsHistogram := p.NewHistogramVec(p.HistogramOpts{
 		Name:    "kv_operations_latency_seconds",
@@ -68,37 +68,37 @@ func NewPrometheusMetrics() *metrics {
 
 // HttpPut increments the http put counter and observes the duration
 func (m *metrics) HttpPut(key string, duration float64) {
-	m.kvOperationsCounter.WithLabelValues(string(httpApi), string(putOp), key).Inc()
+	m.kvOperationsCounter.WithLabelValues(string(httpApi), string(putOp)).Inc()
 	m.kvOperationsHistogram.WithLabelValues(string(httpApi), string(putOp)).Observe(duration)
 }
 
 // HttpDelete increments the http delete counter and observes the duration
 func (m *metrics) HttpDelete(key string, duration float64) {
-	m.kvOperationsCounter.WithLabelValues(string(httpApi), string(deleteOp), key).Inc()
+	m.kvOperationsCounter.WithLabelValues(string(httpApi), string(deleteOp)).Inc()
 	m.kvOperationsHistogram.WithLabelValues(string(httpApi), string(deleteOp)).Observe(duration)
 }
 
 // HttpGet increments the http get counter and observes the duration
 func (m *metrics) HttpGet(key string, duration float64) {
-	m.kvOperationsCounter.WithLabelValues(string(httpApi), string(getOp), key).Inc()
+	m.kvOperationsCounter.WithLabelValues(string(httpApi), string(getOp)).Inc()
 	m.kvOperationsHistogram.WithLabelValues(string(httpApi), string(getOp)).Observe(duration)
 }
 
 // GrpcPut increments the grpc put counter and observes the duration
 func (m *metrics) GrpcPut(key string, duration float64) {
-	m.kvOperationsCounter.WithLabelValues(string(grpcApi), string(putOp), key).Inc()
+	m.kvOperationsCounter.WithLabelValues(string(grpcApi), string(putOp)).Inc()
 	m.kvOperationsHistogram.WithLabelValues(string(grpcApi), string(putOp)).Observe(duration)
 }
 
 // GrpcDelete increments the grpc delete counter and observes the duration
 func (m *metrics) GrpcDelete(key string, duration float64) {
-	m.kvOperationsCounter.WithLabelValues(string(grpcApi), string(deleteOp), key).Inc()
+	m.kvOperationsCounter.WithLabelValues(string(grpcApi), string(deleteOp)).Inc()
 	m.kvOperationsHistogram.WithLabelValues(string(grpcApi), string(deleteOp)).Observe(duration)
 }
 
 // GrpcGet increments the grpc get counter and observes the duration
 func (m *metrics) GrpcGet(key string, duration float64) {
-	m.kvOperationsCounter.WithLabelValues(string(grpcApi), string(getOp), key).Inc()
+	m.kvOperationsCounter.WithLabelValues(string(grpcApi), string(getOp)).Inc()
 	m.kvOperationsHistogram.WithLabelValues(string(grpcApi), string(getOp)).Observe(duration)
 }
 
