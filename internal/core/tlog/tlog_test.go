@@ -9,29 +9,11 @@ import (
 	"testing"
 
 	"github.com/shrtyk/kv-store/internal/core/snapshot"
-	"github.com/shrtyk/kv-store/internal/core/store"
+	storemocks "github.com/shrtyk/kv-store/internal/core/ports/store/mocks"
 	tu "github.com/shrtyk/kv-store/internal/tests/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-type mockstore struct {
-	store.Store
-}
-
-func (m *mockstore) Put(key, value string) error {
-	return nil
-}
-func (m *mockstore) Get(key string) (string, error) {
-	return "", nil
-}
-func (m *mockstore) Delete(key string) error {
-	return nil
-}
-
-func (m *mockstore) Items() map[string]string {
-	return nil
-}
 
 func TestTransactionFileLoggger(t *testing.T) {
 	l, _ := tu.NewMockLogger()
@@ -46,7 +28,8 @@ func TestTransactionFileLoggger(t *testing.T) {
 	tl, err := NewFileTransactionalLogger(lcfg, l, snapshotter)
 	require.NoError(t, err)
 
-	tl.Start(context.Background(), &sync.WaitGroup{}, &mockstore{})
+	mockStore := storemocks.NewMockStore(t)
+	tl.Start(context.Background(), &sync.WaitGroup{}, mockStore)
 
 	tl.WritePut(k, v)
 	tl.WritePut(k, v)
@@ -72,7 +55,9 @@ func TestTransactionFileLoggger(t *testing.T) {
 	defer func() {
 		assert.NoError(t, ntl.Close())
 	}()
-	ntl.Start(context.Background(), &sync.WaitGroup{}, &mockstore{})
+	mockStore2 := storemocks.NewMockStore(t)
+	mockStore2.EXPECT().Put(k, v).Return(nil).Twice()
+	ntl.Start(context.Background(), &sync.WaitGroup{}, mockStore2)
 
 	ntl.WritePut(k, v)
 	ntl.WritePut(k, v)
@@ -85,7 +70,7 @@ func TestSnapshotting(t *testing.T) {
 	lcfg := tu.NewMockTransLogCfg()
 	tu.FileCleanUp(t, lcfg.LogFileName)
 
-	s := store.NewStore(&sync.WaitGroup{}, tu.NewMockStoreCfg(), tu.NewMockShardsCfg(), l)
+	mockStore := storemocks.NewMockStore(t)
 
 	snapshotter := snapshot.NewFileSnapshotter(
 		tu.NewMockSnapshotsCfg(t.TempDir(), 2),
@@ -99,7 +84,7 @@ func TestSnapshotting(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	tl.Start(ctx, &sync.WaitGroup{}, s)
+	tl.Start(ctx, &sync.WaitGroup{}, mockStore)
 
 	for i := range 10 {
 		tl.WritePut(strconv.Itoa(i), strconv.Itoa(i+1))
@@ -111,7 +96,7 @@ func TestSnapshotting(t *testing.T) {
 
 	tl.WaitWritings()
 
-	tl.snapshot(s)
+	tl.snapshot(mockStore)
 	tl.waitSnapshot()
 
 	latestPath, latestSeq, err := snapshotter.FindLatest()
@@ -202,7 +187,7 @@ func TestRestore(t *testing.T) {
 	lcfg := tu.NewMockTransLogCfg()
 	tu.FileCleanUp(t, lcfg.LogFileName)
 
-	s := store.NewStore(&sync.WaitGroup{}, tu.NewMockStoreCfg(), tu.NewMockShardsCfg(), l)
+	mockStore := storemocks.NewMockStore(t)
 	snapshotter := &mockSnapshotter{
 		findLatestPath: "test-path",
 		findLatestSeq:  10,
@@ -213,9 +198,10 @@ func TestRestore(t *testing.T) {
 	defer func() {
 		assert.NoError(t, tl.Close())
 	}()
-	tl.restore(s)
-	val, err := s.Get("key")
-	assert.NoError(t, err)
-	assert.Equal(t, "value", val)
+
+	mockStore.EXPECT().Put("key", "value").Return(nil).Once()
+
+	tl.restore(mockStore)
+
 	assert.Equal(t, uint64(10), tl.lastSeq)
 }
