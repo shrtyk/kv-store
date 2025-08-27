@@ -140,11 +140,11 @@ func (m *ShardedMap) Items() map[string]string {
 
 func (m *ShardedMap) StartShardsSupervisor(ctx context.Context, wg *sync.WaitGroup) {
 	t := time.NewTicker(m.checksFreq)
-	defer t.Stop()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
+		defer t.Stop()
 		for {
 			select {
 			case <-ctx.Done():

@@ -55,6 +55,12 @@ func TestE2E(t *testing.T) {
 		GRPCCfg: cfg.GRPCCfg{
 			Port: "16702",
 		},
+		ShardsCfg: cfg.ShardsCfg{
+			CheckFreq:          30 * time.Second,
+			SparseRatio:        0.5,
+			MinOpsUntilRebuild: 2000,
+			MinDeletes:         500,
+		},
 	}
 	l := logger.NewLogger(cfg.Env)
 	st := store.NewStore(&wg, &cfg.Store, &cfg.ShardsCfg, l)
