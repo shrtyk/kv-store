@@ -53,6 +53,14 @@ func NewMockSnapshotsCfg(dir string, maxSnapshots int) *cfg.SnapshotsCfg {
 	}
 }
 
+func NewMockShardsCfg() *cfg.ShardsCfg {
+	return &cfg.ShardsCfg{
+		SparseRatio:        0.1,
+		MinOpsUntilRebuild: 1000,
+		MinDeletes:         500,
+	}
+}
+
 func RandomString(t *testing.T, size int) string {
 	t.Helper()
 	b := make([]byte, size)

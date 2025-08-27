@@ -5,9 +5,7 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
-	"os/signal"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -21,11 +19,7 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger"
 )
 
-func (app *application) Serve() {
-	var wg sync.WaitGroup
-	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer cancel()
-
+func (app *application) Serve(ctx context.Context, wg *sync.WaitGroup) {
 	httpServ := http.Server{
 		Addr:         ":" + app.cfg.HttpCfg.Port,
 		Handler:      app.NewRouter(),
@@ -34,7 +28,7 @@ func (app *application) Serve() {
 		ReadTimeout:  app.cfg.HttpCfg.ServerReadTimeout,
 	}
 	grpcServ := grpc.NewGRPCServer(
-		&wg,
+		wg,
 		&app.cfg.GRPCCfg,
 		&app.cfg.Store,
 		app.store,
@@ -57,7 +51,8 @@ func (app *application) Serve() {
 		close(errCh)
 	}()
 
-	app.tl.Start(ctx, &wg, app.store)
+	app.tl.Start(ctx, wg, app.store)
+	app.store.StartMapRebuilder(ctx, wg)
 
 	app.logger.Info("grpc listening", slog.String("port", app.cfg.GRPCCfg.Port))
 	grpcServ.MustStart()

@@ -6,9 +6,9 @@ import (
 	"sync"
 	"testing"
 
+	pstore "github.com/shrtyk/kv-store/internal/core/ports/store"
 	"github.com/shrtyk/kv-store/internal/core/snapshot"
 	"github.com/shrtyk/kv-store/internal/core/tlog"
-	pstore "github.com/shrtyk/kv-store/internal/core/ports/store"
 	tu "github.com/shrtyk/kv-store/internal/tests/testutils"
 	"github.com/stretchr/testify/assert"
 )
@@ -26,7 +26,7 @@ func TestStore(t *testing.T) {
 	)
 	tl := tlog.MustCreateNewFileTransLog(lcfg, l, snapshotter)
 
-	s := NewStore(tu.NewMockStoreCfg(), l)
+	s := NewStore(&sync.WaitGroup{}, tu.NewMockStoreCfg(), tu.NewMockShardsCfg(), l)
 	tl.Start(t.Context(), &sync.WaitGroup{}, s)
 
 	_, err := s.Get(k)

@@ -77,7 +77,7 @@ func TestHandlers(t *testing.T) {
 	)
 	tl := tlog.MustCreateNewFileTransLog(lcfg, l, snapshotter)
 
-	appstore := store.NewStore(tu.NewMockStoreCfg(), l)
+	appstore := store.NewStore(&sync.WaitGroup{}, tu.NewMockStoreCfg(), tu.NewMockShardsCfg(), l)
 	tl.Start(t.Context(), &sync.WaitGroup{}, appstore)
 	router := NewTestRouter(appstore, tl)
 
@@ -221,7 +221,7 @@ func testRouter(t *testing.T) *chi.Mux {
 	)
 	tl := tlog.MustCreateNewFileTransLog(lcfg, l, snapshotter)
 
-	appstore := store.NewStore(tu.NewMockStoreCfg(), l)
+	appstore := store.NewStore(&sync.WaitGroup{}, tu.NewMockStoreCfg(), tu.NewMockShardsCfg(), l)
 	tl.Start(t.Context(), &sync.WaitGroup{}, appstore)
 	return NewTestRouter(appstore, tl)
 }

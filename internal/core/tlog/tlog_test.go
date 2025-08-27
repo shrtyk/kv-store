@@ -85,7 +85,7 @@ func TestSnapshotting(t *testing.T) {
 	lcfg := tu.NewMockTransLogCfg()
 	tu.FileCleanUp(t, lcfg.LogFileName)
 
-	s := store.NewStore(tu.NewMockStoreCfg(), l)
+	s := store.NewStore(&sync.WaitGroup{}, tu.NewMockStoreCfg(), tu.NewMockShardsCfg(), l)
 
 	snapshotter := snapshot.NewFileSnapshotter(
 		tu.NewMockSnapshotsCfg(t.TempDir(), 2),
@@ -202,7 +202,7 @@ func TestRestore(t *testing.T) {
 	lcfg := tu.NewMockTransLogCfg()
 	tu.FileCleanUp(t, lcfg.LogFileName)
 
-	s := store.NewStore(tu.NewMockStoreCfg(), l)
+	s := store.NewStore(&sync.WaitGroup{}, tu.NewMockStoreCfg(), tu.NewMockShardsCfg(), l)
 	snapshotter := &mockSnapshotter{
 		findLatestPath: "test-path",
 		findLatestSeq:  10,

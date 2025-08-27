@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 )
 
 func TestE2E(t *testing.T) {
+	var wg sync.WaitGroup
 	ap := NewApp()
 	tempDir := t.TempDir()
 	logName := "wal.log"
@@ -55,7 +57,7 @@ func TestE2E(t *testing.T) {
 		},
 	}
 	l := logger.NewLogger(cfg.Env)
-	st := store.NewStore(&cfg.Store, l)
+	st := store.NewStore(&wg, &cfg.Store, &cfg.ShardsCfg, l)
 	snapshotter := snapshot.NewFileSnapshotter(&cfg.Snapshots, l)
 	tl := tlog.MustCreateNewFileTransLog(&cfg.Wal, l, snapshotter)
 	metric := pmts.NewMockMetrics()
@@ -69,7 +71,7 @@ func TestE2E(t *testing.T) {
 	)
 
 	go func() {
-		ap.Serve()
+		ap.Serve(t.Context(), &wg)
 	}()
 
 	client := &http.Client{}

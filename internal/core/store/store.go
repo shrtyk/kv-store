@@ -16,10 +16,10 @@ type store struct {
 	logger *slog.Logger
 }
 
-func NewStore(cfg *cfg.StoreCfg, l *slog.Logger) *store {
+func NewStore(wg *sync.WaitGroup, cfg *cfg.StoreCfg, shardCfg *cfg.ShardsCfg, l *slog.Logger) *store {
 	return &store{
 		cfg:     cfg,
-		storage: NewShardedMap(cfg.ShardsCount, Xxhasher{}),
+		storage: NewShardedMap(shardCfg, cfg.ShardsCount, Xxhasher{}),
 		logger:  l,
 	}
 }
@@ -49,7 +49,7 @@ func (s *store) Delete(key string) error {
 }
 
 func (s *store) StartMapRebuilder(ctx context.Context, wg *sync.WaitGroup) {
-	// TODO
+	s.storage.StartShardsSupervisor(ctx, wg)
 }
 
 func (s *store) Items() map[string]string {

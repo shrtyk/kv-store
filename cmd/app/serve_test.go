@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"github.com/shrtyk/kv-store/internal/cfg"
@@ -29,7 +30,7 @@ func TestServe(t *testing.T) {
 		assert.NoError(t, tl.Close())
 	}()
 
-	store := store.NewStore(tu.NewMockStoreCfg(), l)
+	store := store.NewStore(&sync.WaitGroup{}, tu.NewMockStoreCfg(), tu.NewMockShardsCfg(), l)
 	m := pmts.NewMockMetrics()
 
 	app := NewApp()

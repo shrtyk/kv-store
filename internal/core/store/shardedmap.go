@@ -1,8 +1,12 @@
 package store
 
 import (
+	"context"
 	"maps"
 	"sync"
+	"time"
+
+	"github.com/shrtyk/kv-store/internal/cfg"
 )
 
 const (
@@ -11,20 +15,55 @@ const (
 )
 
 type Shard struct {
-	mu sync.RWMutex
-	m  map[string]string
+	cfg     *cfg.ShardsCfg
+	mu      sync.RWMutex
+	m       map[string]string
+	puts    uint64
+	deletes uint64
+	maxSize int
 }
 
 type ShardedMap struct {
-	shards []*Shard
-	hash   Hasher
+	shards     []*Shard
+	hash       Hasher
+	checksFreq time.Duration
+}
+
+func (s *Shard) needsRebuild() bool {
+	s.mu.RLock()
+	dels := s.deletes
+	puts := s.puts
+	maxSize := s.maxSize
+	curSize := len(s.m)
+	s.mu.RUnlock()
+
+	totalOps := puts + dels
+	if dels >= uint64(s.cfg.MinDeletes) &&
+		curSize <= int(float64(maxSize)*s.cfg.SparseRatio) &&
+		totalOps >= uint64(s.cfg.MinOpsUntilRebuild) {
+		return true
+	}
+
+	return false
+}
+
+func (s *Shard) rebuild() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	newMap := make(map[string]string, len(s.m))
+	maps.Copy(newMap, s.m)
+
+	s.m = newMap
+	s.puts = 0
+	s.deletes = 0
+	s.maxSize = len(s.m)
 }
 
 type Hasher interface {
 	Sum64(string) uint64
 }
 
-func NewShardedMap(shardsCount int, hasher Hasher) *ShardedMap {
+func NewShardedMap(shardsCfg *cfg.ShardsCfg, shardsCount int, hasher Hasher) *ShardedMap {
 	if shardsCount <= 0 {
 		shardsCount = DefaultShardsCount
 	}
@@ -32,13 +71,15 @@ func NewShardedMap(shardsCount int, hasher Hasher) *ShardedMap {
 	shards := make([]*Shard, shardsCount)
 	for i := 0; i < shardsCount; i++ {
 		shards[i] = &Shard{
-			m: make(map[string]string),
+			cfg: shardsCfg,
+			m:   make(map[string]string),
 		}
 	}
 
 	return &ShardedMap{
-		shards: shards,
-		hash:   hasher,
+		shards:     shards,
+		hash:       hasher,
+		checksFreq: shardsCfg.CheckFreq,
 	}
 }
 
@@ -53,6 +94,8 @@ func (m *ShardedMap) Put(key, value string) {
 	defer shard.mu.Unlock()
 
 	shard.m[key] = value
+	shard.puts++
+	shard.maxSize = max(shard.maxSize, len(shard.m))
 }
 
 func (m *ShardedMap) Get(key string) (string, bool) {
@@ -72,6 +115,7 @@ func (m *ShardedMap) Delete(key string) {
 	defer shard.mu.Unlock()
 
 	delete(shard.m, key)
+	shard.deletes++
 }
 
 func (m *ShardedMap) Len() int {
@@ -92,4 +136,26 @@ func (m *ShardedMap) Items() map[string]string {
 		shard.mu.RUnlock()
 	}
 	return items
+}
+
+func (m *ShardedMap) StartShardsSupervisor(ctx context.Context, wg *sync.WaitGroup) {
+	t := time.NewTicker(m.checksFreq)
+	defer t.Stop()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				for _, shard := range m.shards {
+					if shard.needsRebuild() {
+						shard.rebuild()
+					}
+				}
+			}
+		}
+	}()
 }

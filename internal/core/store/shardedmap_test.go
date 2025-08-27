@@ -5,23 +5,24 @@ import (
 	"sync"
 	"testing"
 
+	tu "github.com/shrtyk/kv-store/internal/tests/testutils"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestNewShardedMap(t *testing.T) {
-	m := NewShardedMap(16, Xxhasher{})
+	m := NewShardedMap(tu.NewMockShardsCfg(), 16, Xxhasher{})
 	assert.Len(t, m.shards, 16)
 	assert.NotNil(t, m.hash)
 }
 
 func TestShardedMapGetShard(t *testing.T) {
-	m := NewShardedMap(16, Xxhasher{})
+	m := NewShardedMap(tu.NewMockShardsCfg(), 16, Xxhasher{})
 	shard := m.getShard("test_key")
 	assert.NotNil(t, shard)
 }
 
 func TestShardedMapPutAndGet(t *testing.T) {
-	m := NewShardedMap(16, Xxhasher{})
+	m := NewShardedMap(tu.NewMockShardsCfg(), 16, Xxhasher{})
 
 	m.Put("key1", "value1")
 	val, ok := m.Get("key1")
@@ -33,7 +34,7 @@ func TestShardedMapPutAndGet(t *testing.T) {
 }
 
 func TestShardedMapDelete(t *testing.T) {
-	m := NewShardedMap(16, Xxhasher{})
+	m := NewShardedMap(tu.NewMockShardsCfg(), 16, Xxhasher{})
 	m.Put("key1", "value1")
 
 	m.Delete("key1")
@@ -42,7 +43,7 @@ func TestShardedMapDelete(t *testing.T) {
 }
 
 func TestShardedMapLen(t *testing.T) {
-	m := NewShardedMap(16, Xxhasher{})
+	m := NewShardedMap(tu.NewMockShardsCfg(), 16, Xxhasher{})
 	assert.Equal(t, 0, m.Len())
 
 	m.Put("key1", "value1")
@@ -54,7 +55,7 @@ func TestShardedMapLen(t *testing.T) {
 }
 
 func TestShardedMapItems(t *testing.T) {
-	m := NewShardedMap(16, Xxhasher{})
+	m := NewShardedMap(tu.NewMockShardsCfg(), 16, Xxhasher{})
 	m.Put("key1", "value1")
 	m.Put("key2", "value2")
 
@@ -67,7 +68,7 @@ func TestShardedMapItems(t *testing.T) {
 }
 
 func TestShardedMapConcurrentAccess(t *testing.T) {
-	m := NewShardedMap(16, Xxhasher{})
+	m := NewShardedMap(tu.NewMockShardsCfg(), 16, Xxhasher{})
 	var wg sync.WaitGroup
 
 	// Concurrent Puts

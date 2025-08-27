@@ -1,6 +1,11 @@
 package main
 
 import (
+	"context"
+	"os/signal"
+	"sync"
+	"syscall"
+
 	"github.com/shrtyk/kv-store/internal/cfg"
 	"github.com/shrtyk/kv-store/internal/core/snapshot"
 	"github.com/shrtyk/kv-store/internal/core/store"
@@ -13,6 +18,10 @@ import (
 // @version         1.0
 // @description     A simple key-value store.
 func main() {
+	var wg sync.WaitGroup
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer cancel()
+
 	cfg := cfg.ReadConfig()
 	logger := log.NewLogger(cfg.Env)
 
@@ -26,7 +35,7 @@ func main() {
 	}()
 
 	m := pmts.NewPrometheusMetrics()
-	st := store.NewStore(&cfg.Store, logger)
+	st := store.NewStore(&wg, &cfg.Store, &cfg.ShardsCfg, logger)
 
 	ap := NewApp()
 	ap.Init(
@@ -37,5 +46,5 @@ func main() {
 		WithMetrics(m),
 	)
 
-	ap.Serve()
+	ap.Serve(ctx, &wg)
 }

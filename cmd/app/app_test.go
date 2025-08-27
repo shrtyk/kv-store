@@ -1,6 +1,7 @@
 package main
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/shrtyk/kv-store/internal/cfg"
@@ -24,7 +25,7 @@ func TestApp(t *testing.T) {
 		l,
 	)
 	tl := tlog.MustCreateNewFileTransLog(lcfg, l, snapshotter)
-	s := store.NewStore(&cfg.StoreCfg{}, l)
+	s := store.NewStore(&sync.WaitGroup{}, &cfg.StoreCfg{}, &cfg.ShardsCfg{}, l)
 	metrics := pmts.NewMockMetrics()
 
 	tapp := NewApp()

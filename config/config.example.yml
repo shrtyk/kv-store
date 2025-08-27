@@ -13,6 +13,17 @@ store:
   # Use a power of 2 for better performance.
   shards_count: 128
 
+# Shards configuration
+shards:
+  # How often shards supervisor will start health check
+  check_frequency: 30s
+  # Sparse ratio needed to to trigger rebuild (current shard size <= all time max size * sparse ration)
+  sparse_ratio: 0.5
+  # Min operations to trigger shard rebuild
+  min_operations_until_rebuild: 2000
+  # Min delete operation to trigger shard rebuild
+  min_deletes: 500
+
 # Write-Ahead Log (WAL) configuration
 transactional_logger:
   # Path to the WAL file.
