@@ -99,7 +99,5 @@ func (app *application) NewRouter() *chi.Mux {
 		r.Delete("/{key}", handlers.DeleteHandler)
 	})
 
-	mux.Get("/healthz", handlers.Healthz)
-
 	return mux
 }
