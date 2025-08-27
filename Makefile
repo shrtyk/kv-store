@@ -28,7 +28,7 @@ test-cover: ## Run unit tests and generate HTML coverage report
 	@go tool cover -html=coverage.out -o coverage.html
 
 test-perf: ## Run performance tests against a running instance
-	@go test -v -run=TestFunctional_BulkPutDeletePerformance ./tests
+	@go test -v -tags=performance ./internal/tests
 
 lint: ## Lint the Go code using golangci-lint
 	@command -v golangci-lint >/dev/null 2>&1 || (echo "golangci-lint not found. Please install it: https://golangci-lint.run/usage/install/"; exit 1)
