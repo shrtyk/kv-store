@@ -48,11 +48,13 @@ func (s *Shard) needsRebuild() bool {
 }
 
 func (s *Shard) rebuild() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	s.mu.RLock()
 	newMap := make(map[string]string, len(s.m))
 	maps.Copy(newMap, s.m)
+	s.mu.RUnlock()
 
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.m = newMap
 	s.puts = 0
 	s.deletes = 0
