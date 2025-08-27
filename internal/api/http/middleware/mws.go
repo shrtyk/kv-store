@@ -51,7 +51,7 @@ func (m *mws) HttpMetrics(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
-		cw := &customResponseWriter{ResponseWriter: w}
+		cw := &customResponseWriter{ResponseWriter: w, statusCode: http.StatusOK}
 		next.ServeHTTP(cw, r)
 
 		m.metrics.HttpRequest(
