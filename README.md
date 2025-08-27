@@ -9,7 +9,7 @@ A high-performance, persistent, and observable in-memory key-value store built w
 
 ## Features
 
-- **Simple HTTP API**: Provides a straightforward RESTful interface for `PUT`, `GET`, and `DELETE` operations.
+- **Dual HTTP & gRPC APIs**: Interact via a simple RESTful interface or a high-performance gRPC API for `PUT`, `GET`, and `DELETE` operations.
 - **Concurrent & Performant**: Utilizes a sharded map to minimize lock contention, allowing it to handle high-throughput workloads efficiently.
 - **Durable Persistence**: Implements a Write-Ahead Log (WAL) using Protocol Buffers to ensure that no data is lost in a compact and efficient binary format.
 - **Fast Recovery**: Periodically creates snapshots of the data to compact the WAL, ensuring quick restarts. Snapshots also use Protocol Buffers for efficient storage.

@@ -122,11 +122,11 @@ func NewMockMetrics() *mock {
 	return &mock{}
 }
 
-func (m *mock) HttpPut(key string, duration float64)                        {}
-func (m *mock) HttpDelete(key string, duration float64)                     {}
-func (m *mock) HttpGet(key string, duration float64)                        {}
-func (m *mock) HttpRequest(code int, method, path string, latency float64)  {}
-func (m *mock) GrpcPut(key string, duration float64)                        {}
-func (m *mock) GrpcDelete(key string, duration float64)                     {}
-func (m *mock) GrpcGet(key string, duration float64)                        {}
+func (m *mock) HttpPut(key string, duration float64)                                 {}
+func (m *mock) HttpDelete(key string, duration float64)                              {}
+func (m *mock) HttpGet(key string, duration float64)                                 {}
+func (m *mock) HttpRequest(code int, method, path string, latency float64)           {}
+func (m *mock) GrpcPut(key string, duration float64)                                 {}
+func (m *mock) GrpcDelete(key string, duration float64)                              {}
+func (m *mock) GrpcGet(key string, duration float64)                                 {}
 func (m *mock) GrpcRequest(code codes.Code, service, method string, latency float64) {}

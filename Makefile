@@ -9,7 +9,7 @@ DOCKER_IMAGE_NAME=kv-store
 
 UNIT_TESTS_PKGS := $(shell go list ./... | grep -v /mocks | grep -v /gen | grep -v /openapi | grep -v /testutils)
 
-.PHONY: help build run test test-cover test-perf lint clean docker-build docker-up docker-down swag
+.PHONY: help build run test test-cover test-perf lint clean docker-build docker-up docker-down swag proto-grpc/compile proto-entries/compile
 
 build: ## Build the Go binary
 	@go build -o $(BINARY_NAME) -ldflags="-w -s" $(CMD_PATH)
@@ -50,7 +50,7 @@ docker-up: ## Start services with Docker Compose in detached mode
 docker-down: ## Stop and remove services started with Docker Compose
 	@docker-compose down
 
-# Recompile grpc proto
+# Recompile proto grpc
 proto-grpc/compile:
 	@mkdir -p proto/grpc/gen
 	@protoc -I ./proto/grpc \
@@ -58,7 +58,7 @@ proto-grpc/compile:
 	--go-grpc_out ./proto/grpc/gen --go-grpc_opt=paths=source_relative \
 	./proto/grpc/kv-store.proto
 
-# Recompile grpc proto
+# Recompile proto log entries
 proto-entries/compile:
 	@mkdir -p proto/log_entries/gen
 	@protoc -I ./proto/log_entries \
