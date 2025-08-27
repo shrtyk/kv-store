@@ -14,6 +14,7 @@ A high-performance, persistent, and observable in-memory key-value store built w
 - **Durable Persistence**: Implements a Write-Ahead Log (WAL) using Protocol Buffers to ensure that no data is lost in a compact and efficient binary format.
 - **Fast Recovery**: Periodically creates snapshots of the data to compact the WAL, ensuring quick restarts. Snapshots also use Protocol Buffers for efficient storage.
 - **Built-in Observability**: Comes with a pre-configured Grafana dashboard for monitoring key performance metrics via Prometheus.
+- **Automatic Memory Reclamation**: Periodically rebuilds storage shards to reclaim memory from deleted items, preventing memory bloat in write-heavy workloads.
 
 ## Architecture and Design Decisions
 
@@ -93,7 +94,6 @@ The project includes a pre-configured Grafana dashboard for visualizing performa
 
 In current implementation, certain tradeoffs were made, prioritizing simplicity and clarity to effectively demonstrate the core concepts.
 
-- **Memory Management**: Go maps do not shrink their memory allocation when items are deleted. For a long-running, write-heavy service, this can lead to high memory usage. A future improvement would be to implement a background process that periodically **rebuilds map shards** to reclaim unused memory.
 - **Replication**: To improve availability, a replication mechanism could be added to synchronize data to one or more follower nodes.
 - **Clustering**: For horizontal scalability, the store could be extended into a distributed system where data is sharded across multiple nodes in a cluster.
 
