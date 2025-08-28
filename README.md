@@ -90,10 +90,21 @@ The project includes a pre-configured Grafana dashboard for visualizing performa
 - **Key-Value Operations**: P99 latency for PUT, GET, and DELETE operations.
 - **Error Rates**: HTTP 4xx and 5xx error rates.
 
+## Performance
+
+The store was benchmarked using k6 with an open model (arrival-rate) test to determine its limits under heavy, real-world-style load.
+
+| Metric               | Result        |
+| -------------------- | ------------- |
+| Achieved RPS         | ~40,000 req/s |
+| Target RPS           | 50,000 req/s  |
+| Failure Rate         | 0.00%         |
+| p95 Latency (PUT)    | 15.55ms       |
+| p95 Latency (DELETE) | 7.38ms        |
+
 ## Tradeoffs and Future Work
 
-In current implementation, certain tradeoffs were made, prioritizing simplicity and clarity to effectively demonstrate the core concepts.
-
+- **Performance Tuning**: Profile the application under load to investigate the causes of the current performance ceiling and the observed "long-tail" latency (the significant gap between p95 and max response times) to further improve performance consistency.
 - **Replication**: To improve availability, a replication mechanism could be added to synchronize data to one or more follower nodes.
 - **Clustering**: For horizontal scalability, the store could be extended into a distributed system where data is sharded across multiple nodes in a cluster.
 

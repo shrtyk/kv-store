@@ -3,9 +3,13 @@ services:
     build: .
     container_name: kv-store
     ports:
-      - "16700:16700"
+      - "8080:16700"
+      - "8081:16701"
     volumes:
       - kv_data:/app/data
+    networks:
+      - kv-net
+    command: sh -c "mkdir -p /app/data/snapshots"
 
   prometheus:
     image: prom/prometheus:latest
@@ -14,6 +18,8 @@ services:
       - "9090:9090"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - kv-net
 
   grafana:
     image: grafana/grafana:latest
@@ -23,6 +29,13 @@ services:
     volumes:
       - ./grafana/datasources:/etc/grafana/provisioning/datasources
       - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+    networks:
+      - kv-net
 
 volumes:
   kv_data:
+
+networks:
+  kv-net:
+    driver: bridge
+    name: kv-net

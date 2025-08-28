@@ -27,9 +27,6 @@ test-cover: ## Run unit tests and generate HTML coverage report
 	@echo "Coverage report generated: coverage.html"
 	@go tool cover -html=coverage.out -o coverage.html
 
-test-perf: ## Run performance tests against a running instance
-	@go test -count=1 -v -tags=performance ./internal/tests
-
 lint: ## Lint the Go code using golangci-lint
 	@command -v golangci-lint >/dev/null 2>&1 || (echo "golangci-lint not found. Please install it: https://golangci-lint.run/usage/install/"; exit 1)
 	@golangci-lint run ./...
@@ -65,3 +62,11 @@ proto-entries/compile:
 	--go_out ./proto/log_entries/gen --go_opt=paths=source_relative \
 	--go-grpc_out ./proto/log_entries/gen --go-grpc_opt=paths=source_relative \
 	./proto/log_entries/entries.proto
+
+# Run k6 load test
+load-test/run:
+	@docker run --rm -i \
+	--network=kv-net \
+	-v $(CURDIR)/internal/tests/k6_scenarios:/src \
+	-e BASE_URL=http://kv-store:16700 \
+	grafana/k6 run /src/bulk_put_delete.js
