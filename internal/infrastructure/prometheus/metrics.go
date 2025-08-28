@@ -39,7 +39,7 @@ func NewPrometheusMetrics() *metrics {
 	opsHistogram := p.NewHistogramVec(p.HistogramOpts{
 		Name:    "kv_operations_latency_seconds",
 		Help:    "The latency of kv operations in seconds",
-		Buckets: p.LinearBuckets(0.0001, 0.0001, 10),
+		Buckets: p.DefBuckets,
 	}, []string{"transport", "operation"})
 
 	requests := p.NewCounterVec(p.CounterOpts{
@@ -50,7 +50,7 @@ func NewPrometheusMetrics() *metrics {
 	requestsHistogram := p.NewHistogramVec(p.HistogramOpts{
 		Name:    "requests_seconds",
 		Help:    "The http/grpc requests latency in seconds",
-		Buckets: p.LinearBuckets(0.0001, 0.0001, 10),
+		Buckets: p.DefBuckets,
 	}, []string{"transport", "code", "method", "endpoint"})
 
 	p.MustRegister(
