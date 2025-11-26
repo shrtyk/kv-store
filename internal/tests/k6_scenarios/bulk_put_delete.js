@@ -23,16 +23,16 @@ export const options = {
       preAllocatedVUs: 2000,
       maxVUs: 10000,
       stages: [
-        { duration: '15s', target: 50000 }, // ramp up to 80k RPS
-        { duration: '1m', target: 50000 },  // stay at 80k RPS
-        { duration: '15s', target: 0 },      // ramp down
+        { duration: '45s', target: 50000 }, // ramp up to 50k RPS
+        { duration: '1m', target: 50000 },  // stay at 50k RPS
+        { duration: '15s', target: 0 },     // ramp down
       ],
     },
   },
   thresholds: {
     'http_req_failed': ['rate<0.01'],
-    'http_req_duration{method:PUT}': ['p(95)<50'],
-    'http_req_duration{method:DELETE}': ['p(95)<50'],
+    'http_req_duration{method:PUT}': ['p(99)<50'],
+    'http_req_duration{method:DELETE}': ['p(99)<50'],
   },
 };
 
