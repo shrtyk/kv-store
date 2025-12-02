@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package fsm.v1;
+
+option go_package = "github.com/shrtyk/kv-store/proto/fsm/gen;fsm_v1";
+
+message PutCommand {
+  string key = 1;
+  string value = 2;
+}
+
+message DeleteCommand { string key = 1; }
+
+message Command {
+  oneof command {
+    PutCommand put = 1;
+    DeleteCommand delete = 2;
+  }
+}
