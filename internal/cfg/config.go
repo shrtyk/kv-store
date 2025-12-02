@@ -23,6 +23,7 @@ type AppConfig struct {
 	Snapshots SnapshotsCfg `yaml:"snapshots"`
 	HttpCfg   HttpCfg      `yaml:"http"`
 	GRPCCfg   GRPCCfg      `yaml:"grpc"`
+	Raft      RaftCfg      `yaml:"raft"`
 }
 
 type StoreCfg struct {

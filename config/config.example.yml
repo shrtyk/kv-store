@@ -63,3 +63,43 @@ http:
 grpc:
   # Port for the grpc server
   port: 16701
+
+# Raft configuration
+raft:
+  # The unique ID of this node in the cluster.
+  node_id: 1
+  # A list of all peers in the cluster (including this one), in 'id:address' format.
+  peers:
+    [
+      "node-1:localhost:16801",
+      "node-2:localhost:16802",
+      "node-3:localhost:16803",
+    ]
+  # A list of public-facing HTTP addresses for each peer, in the same order as the 'peers' list.
+  # Used for client-side redirects to the leader.
+  public_http_addrs:
+    - "http://localhost:8081"
+  # Directory to store Raft's log and snapshots.
+  data_dir: "data/raft"
+  # Commit a no-op entry on leader election to advance commit index.
+  commit_noop_on_start: true
+  # The address for the internal Raft gRPC communication.
+  grpc_addr: "localhost:16801"
+  # The address for exposing raft-internal monitoring via http.
+  monitoring_addr: "localhost:16901"
+  # Base election timeout.
+  election_timeout: 150ms
+  # The random delta added to the election timeout to prevent split votes.
+  election_timeout_random_delta: 150ms
+  # Heartbeat timeout.
+  heartbeat_timeout: 50ms
+  # Timeout for individual RPCs between Raft peers.
+  rpc_timeout: 50ms
+  # Timeout for graceful shutdown.
+  shutdown_timeout: 5s
+  # Raft log size threshold in bytes to trigger a snapshot. 8MB
+  snapshot_threshold_bytes: 8388608
+  # Interval to check if the Raft log size has exceeded the threshold.
+  snapshot_check_in: 1s
+  # How often the leader sends a heartbeat to the cluster to confirm its leadership before responding to a linearizable read request
+  linearizable_read_in: 500ms
