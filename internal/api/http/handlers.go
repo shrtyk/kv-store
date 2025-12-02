@@ -10,30 +10,39 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/shrtyk/kv-store/internal/cfg"
+	ftr "github.com/shrtyk/kv-store/internal/core/ports/futures"
 	"github.com/shrtyk/kv-store/internal/core/ports/metrics"
 	"github.com/shrtyk/kv-store/internal/core/ports/store"
-	"github.com/shrtyk/kv-store/internal/core/ports/tlog"
 	"github.com/shrtyk/kv-store/pkg/logger"
+	fsm_v1 "github.com/shrtyk/kv-store/proto/fsm/gen"
+	raftapi "github.com/shrtyk/raft-core/api"
+	"google.golang.org/protobuf/proto"
 )
 
 type handlersProvider struct {
-	stCfg   *cfg.StoreCfg
-	store   store.Store
-	tl      tlog.TransactionsLogger
-	metrics metrics.Metrics
+	stCfg               *cfg.StoreCfg
+	store               store.Store
+	metrics             metrics.Metrics
+	raft                raftapi.Raft
+	futures             ftr.FuturesStore
+	raftPublicHTTPAddrs []string
 }
 
 func NewHandlersProvider(
 	stCfg *cfg.StoreCfg,
 	store store.Store,
-	tl tlog.TransactionsLogger,
 	m metrics.Metrics,
+	raft raftapi.Raft,
+	futures ftr.FuturesStore,
+	raftPublicHTTPAddrs []string,
 ) *handlersProvider {
 	return &handlersProvider{
-		stCfg:   stCfg,
-		store:   store,
-		tl:      tl,
-		metrics: m,
+		stCfg:               stCfg,
+		store:               store,
+		metrics:             m,
+		raft:                raft,
+		futures:             futures,
+		raftPublicHTTPAddrs: raftPublicHTTPAddrs,
 	}
 }
 
@@ -60,6 +69,7 @@ func (h *handlersProvider) Healthz(w http.ResponseWriter, r *http.Request) {
 // @Param        key path string true "key"
 // @Param        value body string true "value"
 // @Success      201
+// @Failure 	 307 {string} string "Node is not a leader"
 // @Failure      400 {string} string "Wrong input data"
 // @Failure      500 {string} string "Internal Server Error"
 // @Router       /v1/{key} [put]
@@ -88,23 +98,33 @@ func (h *handlersProvider) PutHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.tl.WritePut(key, string(val))
-	err = h.store.Put(key, string(val))
-
+	cmd := &fsm_v1.Command{
+		Command: &fsm_v1.Command_Put{
+			Put: &fsm_v1.PutCommand{
+				Key:   key,
+				Value: string(val),
+			},
+		},
+	}
+	data, err := proto.Marshal(cmd)
 	if err != nil {
-		switch {
-		// First two checks are pretty redundant and left just in case something went terribly wrong
-		case errors.Is(err, store.ErrKeyTooLarge):
-			http.Error(w, err.Error(), http.StatusBadRequest)
-		case errors.Is(err, store.ErrValueTooLarge):
-			http.Error(w, err.Error(), http.StatusBadRequest)
-		default:
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
+		http.Error(w, "failed to marshal command", http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(http.StatusCreated)
 
+	res := h.raft.Submit(data)
+	if !res.IsLeader {
+		h.redirect(w, r.URL.Path, res)
+		return
+	}
+
+	promise := h.futures.NewPromise(res.LogIndex)
+	if err := promise.Wait(r.Context()); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusCreated)
 	h.metrics.HttpPut(key, time.Since(start).Seconds())
 	l.Debug(
 		"Put operation successfully completed",
@@ -127,7 +147,11 @@ func (h *handlersProvider) GetHandler(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
 	key := chi.URLParam(r, "key")
-	val, err := h.store.Get(key)
+	var val string
+	var err error
+
+	// TODO: This is not a linearizable read.
+	val, err = h.store.Get(key)
 
 	if err != nil {
 		switch {
@@ -157,6 +181,7 @@ func (h *handlersProvider) GetHandler(w http.ResponseWriter, r *http.Request) {
 // @Tags         store
 // @Param        key path string true "key"
 // @Success      204
+// @Failure 	 307 {string} string "Node is not a leader"
 // @Failure      500 {string} string "Internal Server Error"
 // @Router       /v1/{key} [delete]
 func (h *handlersProvider) DeleteHandler(w http.ResponseWriter, r *http.Request) {
@@ -164,14 +189,44 @@ func (h *handlersProvider) DeleteHandler(w http.ResponseWriter, r *http.Request)
 	start := time.Now()
 
 	key := chi.URLParam(r, "key")
-	h.tl.WriteDelete(key)
-	err := h.store.Delete(key)
 
+	cmd := &fsm_v1.Command{
+		Command: &fsm_v1.Command_Delete{
+			Delete: &fsm_v1.DeleteCommand{
+				Key: key,
+			},
+		},
+	}
+	data, err := proto.Marshal(cmd)
 	if err != nil {
+		http.Error(w, "failed to marshal command", http.StatusInternalServerError)
+		return
+	}
+
+	res := h.raft.Submit(data)
+	if !res.IsLeader {
+		h.redirect(w, r.URL.Path, res)
+		return
+	}
+
+	promise := h.futures.NewPromise(res.LogIndex)
+	if err := promise.Wait(r.Context()); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	w.WriteHeader(http.StatusNoContent)
 	h.metrics.HttpDelete(key, time.Since(start).Seconds())
 	l.Debug("Delete operation successfully completed", slog.String("key", key))
+}
+
+func (h *handlersProvider) redirect(w http.ResponseWriter, urlPath string, res *raftapi.SubmitResult) {
+	if res.LeaderID >= 0 && res.LeaderID < len(h.raftPublicHTTPAddrs) {
+		leaderAddr := h.raftPublicHTTPAddrs[res.LeaderID]
+		redirectURL := fmt.Sprintf("%s%s", leaderAddr, urlPath)
+		w.Header().Set("Location", redirectURL)
+		w.WriteHeader(http.StatusTemporaryRedirect)
+	} else {
+		http.Error(w, "no leader available", http.StatusServiceUnavailable)
+	}
 }
