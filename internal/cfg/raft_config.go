@@ -17,17 +17,17 @@ type RaftCfg struct {
 	CommitNoOpOn               bool          `yaml:"commit_noop_on_start" env:"RAFT_COMMIT_NOOP_ON_START" env-default:"true"`
 	GRPCAddr                   string        `yaml:"grpc_addr" env:"RAFT_GRPC_ADDR"`
 	MonitoringAddr             string        `yaml:"monitoring_addr" env:"RAFT_MONITORING_ADDR"`
-	ElectionTimeout            time.Duration `yaml:"election_timeout" env:"RAFT_ELECTION_TIMEOUT" env-default:"150ms"`
-	ElectionTimeoutRandomDelta time.Duration `yaml:"election_timeout_random_delta" env:"RAFT_ELECTION_TIMEOUT_RANDOM_DELTA" env-default:"150ms"`
+	ElectionTimeout            time.Duration `yaml:"election_timeout" env:"RAFT_ELECTION_TIMEOUT" env-default:"400ms"`
+	ElectionTimeoutRandomDelta time.Duration `yaml:"election_timeout_random_delta" env:"RAFT_ELECTION_TIMEOUT_RANDOM_DELTA" env-default:"400ms"`
 	HeartbeatTimeout           time.Duration `yaml:"heartbeat_timeout" env:"RAFT_HEARTBEAT_TIMEOUT" env-default:"100ms"`
-	RPCTimeout                 time.Duration `yaml:"rpc_timeout" env:"RAFT_RPC_TIMEOUT" env-default:"100ms"`
+	RPCTimeout                 time.Duration `yaml:"rpc_timeout" env:"RAFT_RPC_TIMEOUT" env-default:"400ms"`
 	ShutdownTimeout            time.Duration `yaml:"shutdown_timeout" env:"RAFT_SHUTDOWN_TIMEOUT" env-default:"5s"`
 	SnapshotThreshold          int           `yaml:"snapshot_threshold_bytes" env:"RAFT_SNAPSHOT_THRESHOLD_BYTES" env-default:"8388608"`
 	SnapshotCheckIn            time.Duration `yaml:"snapshot_check_in" env:"RAFT_SNAPSHOT_CHECK_IN" env-default:"1s"`
 	LinearizableReadIn         time.Duration `yaml:"linearizable_read_in" env:"RAFT_LINEARIZABLE_READ_IN" env-default:"100ms"`
-	CBFailureThreshold         int           `yaml:"cb_failure_threshold" env:"RAFT_CB_FAILURE_THRESHOLD" env-default:"8"`
-	CBSuccessThreshold         int           `yaml:"cb_success_threshold" env:"RAFT_CB_SUCCESS_THRESHOLD" env-default:"4"`
-	CBResetTimeout             time.Duration `yaml:"cb_reset_timeout" env:"CB_RESET_TIMEOUT" env-default:"5s"`
+	CBFailureThreshold         int           `yaml:"cb_failure_threshold" env:"RAFT_CB_FAILURE_THRESHOLD" env-default:"6"`
+	CBSuccessThreshold         int           `yaml:"cb_success_threshold" env:"RAFT_CB_SUCCESS_THRESHOLD" env-default:"3"`
+	CBResetTimeout             time.Duration `yaml:"cb_reset_timeout" env:"CB_RESET_TIMEOUT" env-default:"400ms"`
 }
 
 func (r *RaftCfg) MapToRaftApiCfg(env string) *api.RaftConfig {

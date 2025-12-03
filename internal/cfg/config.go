@@ -27,12 +27,12 @@ type AppConfig struct {
 }
 
 type StoreCfg struct {
-	MaxKeySize  int `yaml:"max_key" env:"MAX_KEY_SIZE_BYTES" env-default:"1024"`
-	MaxValSize  int `yaml:"max_val" env:"MAX_VAL_SIZE_BYTES" env-default:"1024"`
-	ShardsCount int `yaml:"shards_count" env:"SHARDS_COUNT" env-default:"64"`
+	MaxKeySize int `yaml:"max_key" env:"MAX_KEY_SIZE_BYTES" env-default:"1024"`
+	MaxValSize int `yaml:"max_val" env:"MAX_VAL_SIZE_BYTES" env-default:"1024"`
 }
 
 type ShardsCfg struct {
+	ShardsCount        int           `yaml:"shards_count" env:"SHARDS_COUNT" env-default:"64"`
 	CheckFreq          time.Duration `yaml:"check_frequency" env:"SHARDS_CHECK_FREQ" env-default:"30s"`
 	SparseRatio        float64       `yaml:"sparse_ratio" env:"SHARDS_SPARSE_RATIO" env-default:"0.5"`
 	MinOpsUntilRebuild int           `yaml:"min_operations_until_rebuild" env:"SHARDS_MIN_OPS_UNTIL_REBUILD" env-default:"2000"`
