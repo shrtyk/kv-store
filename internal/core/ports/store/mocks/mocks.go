@@ -252,6 +252,46 @@ func (_c *MockStore_Put_Call) RunAndReturn(run func(key string, value string) er
 	return _c
 }
 
+// RestoreFromSnapshot provides a mock function for the type MockStore
+func (_mock *MockStore) RestoreFromSnapshot(snapData map[string]string) {
+	_mock.Called(snapData)
+	return
+}
+
+// MockStore_RestoreFromSnapshot_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RestoreFromSnapshot'
+type MockStore_RestoreFromSnapshot_Call struct {
+	*mock.Call
+}
+
+// RestoreFromSnapshot is a helper method to define mock.On call
+//   - snapData map[string]string
+func (_e *MockStore_Expecter) RestoreFromSnapshot(snapData interface{}) *MockStore_RestoreFromSnapshot_Call {
+	return &MockStore_RestoreFromSnapshot_Call{Call: _e.mock.On("RestoreFromSnapshot", snapData)}
+}
+
+func (_c *MockStore_RestoreFromSnapshot_Call) Run(run func(snapData map[string]string)) *MockStore_RestoreFromSnapshot_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 map[string]string
+		if args[0] != nil {
+			arg0 = args[0].(map[string]string)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockStore_RestoreFromSnapshot_Call) Return() *MockStore_RestoreFromSnapshot_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *MockStore_RestoreFromSnapshot_Call) RunAndReturn(run func(snapData map[string]string)) *MockStore_RestoreFromSnapshot_Call {
+	_c.Run(run)
+	return _c
+}
+
 // StartMapRebuilder provides a mock function for the type MockStore
 func (_mock *MockStore) StartMapRebuilder(ctx context.Context, wg *sync.WaitGroup) {
 	_mock.Called(ctx, wg)

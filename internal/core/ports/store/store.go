@@ -19,4 +19,5 @@ type Store interface {
 	Get(key string) (string, error)
 	Delete(key string) error
 	Items() map[string]string
+	RestoreFromSnapshot(snapData map[string]string)
 }
