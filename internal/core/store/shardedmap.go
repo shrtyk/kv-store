@@ -24,6 +24,7 @@ type Shard struct {
 }
 
 type ShardedMap struct {
+	mu        sync.Mutex
 	shardsCfg *cfg.ShardsCfg
 	shards    []*Shard
 	hash      Hasher
@@ -138,6 +139,25 @@ func (m *ShardedMap) Items() map[string]string {
 		shard.mu.RUnlock()
 	}
 	return items
+}
+
+func (m *ShardedMap) RestoreFromSnapshot(snapData map[string]string) {
+	newShards := make([]*Shard, m.shardsCfg.ShardsCount)
+	for i := range m.shardsCfg.ShardsCount {
+		newShards[i] = &Shard{
+			cfg: m.shardsCfg,
+			m:   make(map[string]string),
+		}
+	}
+
+	for k, v := range snapData {
+		s := newShards[m.hash.Sum64(k)%uint64(m.shardsCfg.ShardsCount)]
+		s.m[k] = v
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.shards = newShards
 }
 
 func (m *ShardedMap) StartShardsSupervisor(ctx context.Context, wg *sync.WaitGroup) {

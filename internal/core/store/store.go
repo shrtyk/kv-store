@@ -19,7 +19,7 @@ type store struct {
 func NewStore(wg *sync.WaitGroup, cfg *cfg.StoreCfg, shardCfg *cfg.ShardsCfg, l *slog.Logger) *store {
 	return &store{
 		cfg:     cfg,
-		storage: NewShardedMap(shardCfg, cfg.ShardsCount, Xxhasher{}),
+		storage: NewShardedMap(shardCfg, shardCfg.ShardsCount, Xxhasher{}),
 		logger:  l,
 	}
 }
@@ -54,4 +54,8 @@ func (s *store) StartMapRebuilder(ctx context.Context, wg *sync.WaitGroup) {
 
 func (s *store) Items() map[string]string {
 	return s.storage.Items()
+}
+
+func (s *store) RestoreFromSnapshot(snapData map[string]string) {
+	s.storage.RestoreFromSnapshot(snapData)
 }
