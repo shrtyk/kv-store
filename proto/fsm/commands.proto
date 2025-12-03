@@ -17,3 +17,5 @@ message Command {
     DeleteCommand delete = 2;
   }
 }
+
+message SnapshotState { map<string, string> items = 1; }
