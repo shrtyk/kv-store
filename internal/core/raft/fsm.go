@@ -2,6 +2,7 @@ package raft
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	ftr "github.com/shrtyk/kv-store/internal/core/ports/futures"
@@ -19,6 +20,8 @@ type storeFSM struct {
 	log          *slog.Logger
 	store        store.Store
 	appCh        <-chan *raftapi.ApplyMessage
+
+	lastAppliedIdx int64
 }
 
 func NewFSM(
@@ -45,10 +48,11 @@ func (f *storeFSM) Start(ctx context.Context) {
 		case msg := <-f.appCh:
 			if msg.CommandValid {
 				f.applyCommand(msg.Command)
+				f.lastAppliedIdx = msg.CommandIndex
 				f.futuresStore.Fulfill(msg.CommandIndex)
 			}
 			if msg.SnapshotValid {
-				// TODO: snapshot message recieved
+				f.Restore(msg.Snapshot)
 			}
 		}
 	}
@@ -78,12 +82,23 @@ func (f *storeFSM) applyCommand(data []byte) {
 }
 
 func (f *storeFSM) Snapshot() ([]byte, int64, error) {
-	// TODO
-	return nil, 0, nil
+	snapshot := &fsm_v1.SnapshotState{
+		Items: f.store.Items(),
+	}
+	b, err := proto.Marshal(snapshot)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to marshal snapshot: %w", err)
+	}
+	return b, f.lastAppliedIdx, nil
 }
 
 func (f *storeFSM) Restore(data []byte) error {
-	// TODO
+	s := new(fsm_v1.SnapshotState)
+	if err := proto.Unmarshal(data, s); err != nil {
+		return fmt.Errorf("failed to unmarshal snapshot data: %w", err)
+	}
+
+	f.store.RestoreFromSnapshot(s.Items)
 	return nil
 }
 
