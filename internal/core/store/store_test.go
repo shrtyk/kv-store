@@ -7,27 +7,17 @@ import (
 	"testing"
 
 	pstore "github.com/shrtyk/kv-store/internal/core/ports/store"
-	"github.com/shrtyk/kv-store/internal/core/snapshot"
-	"github.com/shrtyk/kv-store/internal/core/tlog"
 	tu "github.com/shrtyk/kv-store/internal/tests/testutils"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestStore(t *testing.T) {
 	l, _ := tu.NewMockLogger()
-	lcfg := tu.NewMockTransLogCfg()
-	tu.FileCleanUp(t, lcfg.LogFileName)
 
 	k := "test-key"
 	v := "test-val"
-	snapshotter := snapshot.NewFileSnapshotter(
-		tu.NewMockSnapshotsCfg(t.TempDir(), 2),
-		l,
-	)
-	tl := tlog.MustCreateNewFileTransLog(lcfg, l, snapshotter)
 
 	s := NewStore(&sync.WaitGroup{}, tu.NewMockStoreCfg(), tu.NewMockShardsCfg(), l)
-	tl.Start(t.Context(), &sync.WaitGroup{}, s)
 
 	_, err := s.Get(k)
 	assert.ErrorIs(t, err, pstore.ErrNoSuchKey)
@@ -54,8 +44,6 @@ func TestStore(t *testing.T) {
 	assert.ErrorIs(t, err, pstore.ErrKeyTooLarge)
 	err = s.Put("key", lString)
 	assert.ErrorIs(t, err, pstore.ErrValueTooLarge)
-
-	assert.NoError(t, tl.Close())
 }
 
 func largeString(maxKeySize, maxValSize int) string {

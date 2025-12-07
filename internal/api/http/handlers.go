@@ -1,6 +1,7 @@
 package httphandlers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -114,12 +115,18 @@ func (h *handlersProvider) PutHandler(w http.ResponseWriter, r *http.Request) {
 
 	res := h.raft.Submit(data)
 	if !res.IsLeader {
-		h.redirect(w, r.URL.Path, res)
+		h.redirect(w, r.URL.Path, res.LeaderID)
 		return
 	}
 
 	promise := h.futures.NewPromise(res.LogIndex)
-	if err := promise.Wait(r.Context()); err != nil {
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+	if err := promise.Wait(ctx); err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			http.Error(w, "request timed out: raft cluster is busy", http.StatusServiceUnavailable)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -139,6 +146,7 @@ func (h *handlersProvider) PutHandler(w http.ResponseWriter, r *http.Request) {
 // @Produce      text/plain
 // @Param        key path string true "key"
 // @Success      200 {string} string "value"
+// @Failure 	 307 {string} string "Node is not a leader"
 // @Failure      404
 // @Failure      500 {string} string "Internal Server Error"
 // @Router       /v1/{key} [get]
@@ -147,23 +155,29 @@ func (h *handlersProvider) GetHandler(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 
 	key := chi.URLParam(r, "key")
-	var val string
-	var err error
 
-	// TODO: This is not a linearizable read.
-	val, err = h.store.Get(key)
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
 
+	resp, err := h.raft.ReadOnly(ctx, []byte(key))
 	if err != nil {
 		switch {
 		case errors.Is(err, store.ErrNoSuchKey):
 			http.NotFound(w, r)
+		case errors.Is(err, context.DeadlineExceeded):
+			http.Error(w, "request timed out: raft cluster is busy", http.StatusServiceUnavailable)
 		default:
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 		return
 	}
 
-	if _, err := w.Write([]byte(val)); err != nil {
+	if !resp.IsLeader {
+		h.redirect(w, r.URL.Path, resp.LeaderId)
+		return
+	}
+
+	if _, err := w.Write(resp.Data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -172,7 +186,7 @@ func (h *handlersProvider) GetHandler(w http.ResponseWriter, r *http.Request) {
 	l.Debug(
 		"Get operation successfully completed",
 		slog.String("key", key),
-		slog.String("value", val))
+		slog.String("value", string(resp.Data)))
 }
 
 // DeleteHandler godoc
@@ -205,12 +219,18 @@ func (h *handlersProvider) DeleteHandler(w http.ResponseWriter, r *http.Request)
 
 	res := h.raft.Submit(data)
 	if !res.IsLeader {
-		h.redirect(w, r.URL.Path, res)
+		h.redirect(w, r.URL.Path, res.LeaderID)
 		return
 	}
 
 	promise := h.futures.NewPromise(res.LogIndex)
-	if err := promise.Wait(r.Context()); err != nil {
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+	if err := promise.Wait(ctx); err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			http.Error(w, "request timed out: raft cluster is busy", http.StatusServiceUnavailable)
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -220,9 +240,9 @@ func (h *handlersProvider) DeleteHandler(w http.ResponseWriter, r *http.Request)
 	l.Debug("Delete operation successfully completed", slog.String("key", key))
 }
 
-func (h *handlersProvider) redirect(w http.ResponseWriter, urlPath string, res *raftapi.SubmitResult) {
-	if res.LeaderID >= 0 && res.LeaderID < len(h.raftPublicHTTPAddrs) {
-		leaderAddr := h.raftPublicHTTPAddrs[res.LeaderID]
+func (h *handlersProvider) redirect(w http.ResponseWriter, urlPath string, leaderId int) {
+	if leaderId >= 0 && leaderId < len(h.raftPublicHTTPAddrs) {
+		leaderAddr := h.raftPublicHTTPAddrs[leaderId]
 		redirectURL := fmt.Sprintf("%s%s", leaderAddr, urlPath)
 		w.Header().Set("Location", redirectURL)
 		w.WriteHeader(http.StatusTemporaryRedirect)

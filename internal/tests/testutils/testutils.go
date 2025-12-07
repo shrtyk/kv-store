@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/shrtyk/kv-store/internal/cfg"
 	"github.com/stretchr/testify/require"
@@ -33,23 +32,6 @@ func NewMockStoreCfg() *cfg.StoreCfg {
 		MaxValSize: 100,
 
 		// TryRebuildIn: 10 * time.Hour,
-	}
-}
-
-func NewMockTransLogCfg() *cfg.WalCfg {
-	return &cfg.WalCfg{
-		LogFileName:        "test",
-		MaxSizeBytes:       1048576,
-		FsyncIn:            100 * time.Millisecond,
-		FsyncRetriesAmount: 3,
-		FsyncRetryIn:       1 * time.Millisecond,
-	}
-}
-
-func NewMockSnapshotsCfg(dir string, maxSnapshots int) *cfg.SnapshotsCfg {
-	return &cfg.SnapshotsCfg{
-		SnapshotsDir:       dir,
-		MaxSnapshotsAmount: maxSnapshots,
 	}
 }
 

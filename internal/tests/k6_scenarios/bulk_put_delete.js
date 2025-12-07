@@ -1,9 +1,9 @@
 import http from 'k6/http';
 import { check } from 'k6';
 
-const baseURL = __ENV.BASE_URL ? `${__ENV.BASE_URL}/v1` : 'http://localhost:16700/v1';
-const keySize = 100;
-const valueSize = 100;
+const baseURL = __ENV.BASE_URL ? `${__ENV.BASE_URL}/v1` : 'http://localhost:8081/v1';
+const keySize = 32;
+const valueSize = 256;
 
 function randomString(length) {
   const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -15,40 +15,60 @@ function randomString(length) {
 }
 
 export const options = {
+  systemTags: [
+    'status', 'method', 'name', 'proto', 'subproto',
+    'tls_version', 'error', 'error_code', 'group',
+    'check', 'scenario', 'service', 'expected_response'
+  ],
+
   scenarios: {
     main_scenario: {
       executor: 'ramping-arrival-rate',
-
       timeUnit: '1s',
-      preAllocatedVUs: 2000,
-      maxVUs: 10000,
+      preAllocatedVUs: 500,
+      maxVUs: 2000,
       stages: [
-        { duration: '45s', target: 50000 }, // ramp up to 50k RPS
-        { duration: '1m', target: 50000 },  // stay at 50k RPS
-        { duration: '15s', target: 0 },     // ramp down
+        { duration: '45s', target: 5000 },
+        { duration: '1m', target: 10000 },
+        { duration: '15s', target: 0 },
       ],
     },
   },
   thresholds: {
     'http_req_failed': ['rate<0.01'],
+    'http_req_duration{method:GET}': ['p(99)<50'],
     'http_req_duration{method:PUT}': ['p(99)<50'],
     'http_req_duration{method:DELETE}': ['p(99)<50'],
   },
 };
 
-
 export default function () {
   const key = randomString(keySize);
   const value = randomString(valueSize);
-  const url = `${baseURL}/${key}`;
+  const url = http.url`${baseURL}/${key}`;
 
-  const putRes = http.put(url, value, { tags: { name: 'PUT /v1/:key', method: 'PUT' } });
-  check(putRes, {
-    'PUT status is 201': (r) => r.status === 201,
+  // 1. PUT
+  const putRes = http.put(url, value, { tags: { method: 'PUT' } });
+
+  if (
+    !check(putRes, {
+      'PUT status is 201': (r) => r.status === 201,
+    })
+  ) {
+    return;
+  }
+
+  // 2. GET
+  const getRes = http.get(url, { tags: { method: 'GET' } });
+
+  check(getRes, {
+    'GET status is 200': (r) => r.status === 200,
+    'GET value match': (r) => r.body === value,
   });
 
-  const delRes = http.del(url, null, { tags: { name: 'DELETE /v1/:key', method: 'DELETE' } });
+  // 3. DELETE
+  const delRes = http.del(url, null, { tags: { method: 'DELETE' } });
   check(delRes, {
-    'DELETE status is 200': (r) => r.status === 200,
+    'DELETE status is 204': (r) => r.status === 204,
   });
 }
