@@ -57,13 +57,25 @@ func (af *applyFuture) cleanMap() {
 }
 
 func (af *applyFuture) NewPromise(logIdx int64) ftr.Future {
-	p := NewPromise()
-
 	af.mu.Lock()
 	defer af.mu.Unlock()
-	af.promises[logIdx] = p
 
+	if p, exists := af.promises[logIdx]; exists && isClosed(p.done) {
+		return p
+	}
+
+	p := NewPromise()
+	af.promises[logIdx] = p
 	return p
+}
+
+func isClosed(ch chan struct{}) bool {
+	select {
+	case <-ch:
+		return true
+	default:
+		return false
+	}
 }
 
 func (af *applyFuture) Fulfill(logIdx int64) {
@@ -71,7 +83,10 @@ func (af *applyFuture) Fulfill(logIdx int64) {
 	defer af.mu.Unlock()
 	if p, exists := af.promises[logIdx]; exists {
 		close(p.done)
-		delete(af.promises, logIdx)
+	} else {
+		p := NewPromise()
+		close(p.done)
+		af.promises[logIdx] = p
 	}
 }
 

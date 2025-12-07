@@ -103,7 +103,6 @@ func (f *storeFSM) Restore(data []byte) error {
 }
 
 func (f *storeFSM) Read(query []byte) ([]byte, error) {
-	// For a simple KV store, the query is the key.
 	key := string(query)
 	value, err := f.store.Get(key)
 	if err != nil {
