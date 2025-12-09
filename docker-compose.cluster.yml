@@ -1,0 +1,102 @@
+services:
+  kv-store-1:
+    build: .
+    container_name: kv-store-1
+    restart: always
+    ports:
+      - "8081:16700" # App HTTP
+      - "9081:16701" # App gRPC
+      - "16801:16801" # Raft gRPC
+      - "16901:16901" # Raft Monitoring
+    networks:
+      - kv-net
+    environment:
+      - CONFIG_PATH=/app/config/config.yml
+      - RAFT_NODE_ID=node-1
+      - RAFT_PEERS=node-1:kv-store-1:16801,node-2:kv-store-2:16802,node-3:kv-store-3:16803
+      - RAFT_PUBLIC_HTTP_ADDRS=http://localhost:8081,http://localhost:8082,http://localhost:8083
+      - RAFT_GRPC_ADDR=:16801
+      - RAFT_MONITORING_ADDR=:16901
+      - HTTP_PORT=16700
+      - GRPC_PORT=16701
+    volumes:
+      - kv-data-1:/app/data
+
+  kv-store-2:
+    build: .
+    container_name: kv-store-2
+    restart: always
+    ports:
+      - "8082:16700" # App HTTP
+      - "9082:16701" # App gRPC
+      - "16802:16802" # Raft gRPC
+      - "16902:16902" # Raft Monitoring
+    networks:
+      - kv-net
+    environment:
+      - CONFIG_PATH=/app/config/config.yml
+      - RAFT_NODE_ID=node-2
+      - RAFT_PEERS=node-1:kv-store-1:16801,node-2:kv-store-2:16802,node-3:kv-store-3:16803
+      - RAFT_PUBLIC_HTTP_ADDRS=http://localhost:8081,http://localhost:8082,http://localhost:8083
+      - RAFT_GRPC_ADDR=:16802
+      - RAFT_MONITORING_ADDR=:16902
+      - HTTP_PORT=16700
+      - GRPC_PORT=16701
+    volumes:
+      - kv-data-2:/app/data
+
+  kv-store-3:
+    build: .
+    container_name: kv-store-3
+    restart: always
+    ports:
+      - "8083:16700" # App HTTP
+      - "9083:16701" # App gRPC
+      - "16803:16803" # Raft gRPC
+      - "16903:16903" # Raft Monitoring
+    networks:
+      - kv-net
+    environment:
+      - CONFIG_PATH=/app/config/config.yml
+      - RAFT_NODE_ID=node-3
+      - RAFT_PEERS=node-1:kv-store-1:16801,node-2:kv-store-2:16802,node-3:kv-store-3:16803
+      - RAFT_PUBLIC_HTTP_ADDRS=http://localhost:8081,http://localhost:8082,http://localhost:8083
+      - RAFT_GRPC_ADDR=:16803
+      - RAFT_MONITORING_ADDR=:16903
+      - HTTP_PORT=16700
+      - GRPC_PORT=16701
+    volumes:
+      - kv-data-3:/app/data
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: always
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.cluster.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - kv-net
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    restart: always
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards
+    networks:
+      - kv-net
+
+volumes:
+  kv-data-1:
+  kv-data-2:
+  kv-data-3:
+
+networks:
+  kv-net:
+    driver: bridge
+    name: kv-net
