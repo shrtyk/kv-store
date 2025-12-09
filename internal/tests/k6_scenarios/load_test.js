@@ -25,18 +25,18 @@ export const options = {
     main_scenario: {
       executor: 'ramping-arrival-rate',
       timeUnit: '1s',
-      preAllocatedVUs: 500,
+      preAllocatedVUs: 1000,
       maxVUs: 2000,
       stages: [
         { duration: '45s', target: 5000 },
-        { duration: '1m', target: 10000 },
+        { duration: '1m', target: 7500 },
         { duration: '15s', target: 0 },
       ],
     },
   },
   thresholds: {
     'http_req_failed': ['rate<0.01'],
-    'http_req_duration{method:GET}': ['p(99)<50'],
+    'http_req_duration{method:GET}': ['p(99)<10'],
     'http_req_duration{method:PUT}': ['p(99)<50'],
     'http_req_duration{method:DELETE}': ['p(99)<50'],
   },
