@@ -8,7 +8,6 @@ import (
 	"github.com/shrtyk/kv-store/internal/core/ports/store"
 	fsm_v1 "github.com/shrtyk/kv-store/proto/fsm/gen"
 	pb "github.com/shrtyk/kv-store/proto/grpc/gen"
-	raftapi "github.com/shrtyk/raft-core/api"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -16,24 +15,29 @@ import (
 
 func (s *Server) Get(ctx context.Context, in *pb.GetReq) (*pb.GetResp, error) {
 	start := time.Now()
-	var value string
-	var err error
+	key := in.GetKey()
 
-	// TODO: This is not a linearizable read.
-	value, err = s.store.Get(in.GetKey())
-
+	resp, err := s.raft.ReadOnly(ctx, []byte(key))
 	if err != nil {
-		if errors.Is(err, store.ErrNoSuchKey) {
+		switch {
+		case errors.Is(err, store.ErrNoSuchKey):
 			return nil, status.Error(codes.NotFound, err.Error())
+		case errors.Is(err, context.DeadlineExceeded):
+			return nil, status.Error(codes.DeadlineExceeded, "request timed out: raft cluster is busy")
+		default:
+			return nil, status.Error(codes.Internal, err.Error())
 		}
-		return nil, status.Error(codes.Internal, err.Error())
 	}
 
-	s.metrics.GrpcGet(in.GetKey(), time.Since(start).Seconds())
+	if !resp.IsLeader {
+		return nil, s.redirect(resp.LeaderId)
+	}
+
+	s.metrics.GrpcGet(key, time.Since(start).Seconds())
 	return &pb.GetResp{
 		Entry: &pb.Entry{
-			Key:   in.GetKey(),
-			Value: value,
+			Key:   key,
+			Value: string(resp.Data),
 		},
 	}, nil
 }
@@ -60,12 +64,12 @@ func (s *Server) Put(ctx context.Context, in *pb.PutReq) (*pb.PutResp, error) {
 		return nil, status.Error(codes.Internal, "failed to marshal command")
 	}
 
-	res := s.raft.Submit(data)
-	if !res.IsLeader {
-		return nil, s.redirectErr(res)
+	resp := s.raft.Submit(data)
+	if !resp.IsLeader {
+		return nil, s.redirect(resp.LeaderID)
 	}
 
-	promise := s.futures.NewFuture(res.LogIndex)
+	promise := s.futures.NewFuture(resp.LogIndex)
 	if err := promise.Wait(ctx); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -89,12 +93,12 @@ func (s *Server) Delete(ctx context.Context, in *pb.DeleteReq) (*pb.DeleteResp, 
 		return nil, status.Error(codes.Internal, "failed to marshal command")
 	}
 
-	res := s.raft.Submit(data)
-	if !res.IsLeader {
-		return nil, s.redirectErr(res)
+	resp := s.raft.Submit(data)
+	if !resp.IsLeader {
+		return nil, s.redirect(resp.LeaderID)
 	}
 
-	promise := s.futures.NewFuture(res.LogIndex)
+	promise := s.futures.NewFuture(resp.LogIndex)
 	if err := promise.Wait(ctx); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -103,9 +107,9 @@ func (s *Server) Delete(ctx context.Context, in *pb.DeleteReq) (*pb.DeleteResp, 
 	return &pb.DeleteResp{}, nil
 }
 
-func (s *Server) redirectErr(res *raftapi.SubmitResult) error {
-	if res.LeaderID >= 0 && res.LeaderID < len(s.raftPublicHTTPAddrs) {
-		leaderAddr := s.raftPublicHTTPAddrs[res.LeaderID]
+func (s *Server) redirect(liderID int) error {
+	if liderID >= 0 && liderID < len(s.raftPublicHTTPAddrs) {
+		leaderAddr := s.raftPublicHTTPAddrs[liderID]
 		return status.Errorf(codes.Unavailable, "not a leader, leader is at %s", leaderAddr)
 	}
 	return status.Error(codes.Unavailable, "no leader available")

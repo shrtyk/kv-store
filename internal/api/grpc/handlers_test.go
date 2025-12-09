@@ -125,7 +125,7 @@ func TestGRPCServer_Get(t *testing.T) {
 		s := setup(t)
 		key, value := "key", "value"
 
-		s.mockStore.On("Get", key).Return(value, nil).Once()
+		s.stubRaft.SetReadOnlyResult([]byte(value), nil)
 		s.mockMetrics.On("GrpcGet", key, mock.Anything).Return().Once()
 
 		resp, err := s.server.Get(context.Background(), &pb.GetReq{Key: key})
@@ -141,7 +141,7 @@ func TestGRPCServer_Get(t *testing.T) {
 		s := setup(t)
 		key := "notfound"
 
-		s.mockStore.On("Get", key).Return("", store.ErrNoSuchKey).Once()
+		s.stubRaft.SetReadOnlyResult(nil, store.ErrNoSuchKey)
 
 		_, err := s.server.Get(context.Background(), &pb.GetReq{Key: key})
 
@@ -149,6 +149,19 @@ func TestGRPCServer_Get(t *testing.T) {
 		st, ok := status.FromError(err)
 		assert.True(t, ok)
 		assert.Equal(t, codes.NotFound, st.Code())
+	})
+
+	t.Run("not leader", func(t *testing.T) {
+		s := setup(t)
+		s.stubRaft.SetLeader(false)
+
+		_, err := s.server.Get(context.Background(), &pb.GetReq{Key: "key"})
+
+		assert.Error(t, err)
+		st, ok := status.FromError(err)
+		assert.True(t, ok)
+		assert.Equal(t, codes.Unavailable, st.Code())
+		assert.Contains(t, st.Message(), "not a leader")
 	})
 }
 
