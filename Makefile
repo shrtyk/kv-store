@@ -11,8 +11,11 @@ UNIT_TESTS_PKGS := $(shell go list ./... | grep -v /mocks | grep -v /gen | grep 
 
 .PHONY: help build run test test-cover test-perf lint clean docker-build docker-up docker-down swag proto-grpc/compile proto-entries/compile
 
-run: ## Run the application locally
-	@go run $(CMD_PATH) -cfg_path=$(CONFIG_PATH)
+docker/up: # Build containers and start them in background
+	@docker compose up -d --build
+
+docker/down: # Stop and remove containers with their volumes
+	@docker compose down --volumes
 
 test: ## Run all unit tests
 	@mkdir -p coverage
@@ -30,19 +33,6 @@ lint: ## Lint the Go code using golangci-lint
 
 swag: ## Regenerate OpenAPI documentation
 	@swag init -g cmd/app/main.go -o api/openapi
-
-clean: ## Clean up build artifacts and coverage reports
-	@rm -f $(BINARY_NAME)
-	@rm -f coverage.out coverage.html
-
-docker-build: ## Build the Docker image
-	@DOCKER_BUILDKIT=1 docker build -t $(DOCKER_IMAGE_NAME) .
-
-docker-up: ## Start services with Docker Compose in detached mode
-	@docker-compose up -d
-
-docker-down: ## Stop and remove services started with Docker Compose
-	@docker-compose down
 
 proto-grpc/compile: # Recompile proto grpc
 	@mkdir -p proto/grpc/gen
