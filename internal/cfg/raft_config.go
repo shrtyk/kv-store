@@ -83,6 +83,7 @@ func (r *RaftCfg) ParsePeers() (*ParsedPeers, error) {
 		}
 		addrs[i] = fmt.Sprintf("%s:%s", parts[1], parts[2])
 	}
+
 	if !found {
 		return nil, fmt.Errorf("node id %s not found in peers list", r.NodeID)
 	}

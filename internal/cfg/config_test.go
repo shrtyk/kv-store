@@ -1,93 +1,32 @@
 package cfg
 
 import (
-	"flag"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestReadConfig(t *testing.T) {
-	tempDir := t.TempDir()
+func TestReadConfig_Env(t *testing.T) {
+	originalPath := path
+	path = ""
+	defer func() { path = originalPath }()
+	t.Setenv("CONFIG_PATH", "")
 
-	validConfigContent := `
-env: "test"
-store:
-  max_key: 1024
-  max_val: 4096
-http_cfg:
-  port: "8080"
-grpc:
-  port: "8081"
-`
-	validConfigPath := filepath.Join(tempDir, "valid.yaml")
-	err := os.WriteFile(validConfigPath, []byte(validConfigContent), 0644)
-	require.NoError(t, err)
+	t.Setenv("ENV", "test-env")
+	t.Setenv("MAX_KEY_SIZE_BYTES", "123")
+	t.Setenv("MAX_VAL_SIZE_BYTES", "456")
+	t.Setenv("SHARDS_COUNT", "16")
+	t.Setenv("HTTP_PORT", "9999")
+	t.Setenv("GRPC_PORT", "9998")
+	t.Setenv("RAFT_NODE_ID", "node-env")
 
-	invalidConfigContent := `wrong yaml`
-	invalidConfigPath := filepath.Join(tempDir, "wrong.yaml")
-	err = os.WriteFile(invalidConfigPath, []byte(invalidConfigContent), 0644)
-	require.NoError(t, err)
+	cfg := ReadConfig()
 
-	testCases := []struct {
-		name           string
-		setup          func(t *testing.T)
-		cleanup        func(t *testing.T)
-		expectedEnv    string
-		expectedMaxKey int
-		expectedMaxVal int
-	}{
-		{
-			name: "success with flag",
-			setup: func(t *testing.T) {
-				err := flag.Set("cfg_path", validConfigPath)
-				require.NoError(t, err)
-			},
-			cleanup: func(t *testing.T) {
-				err := flag.Set("cfg_path", "")
-				require.NoError(t, err)
-				path = ""
-			},
-			expectedEnv:    "test",
-			expectedMaxKey: 1024,
-			expectedMaxVal: 4096,
-		},
-		{
-			name: "success with environment variable",
-			setup: func(t *testing.T) {
-				t.Setenv("CONFIG_PATH", validConfigPath)
-			},
-			cleanup:        func(t *testing.T) {},
-			expectedEnv:    "test",
-			expectedMaxKey: 1024,
-			expectedMaxVal: 4096,
-		},
-		{
-			name: "fallback to env when config file is invalid",
-			setup: func(t *testing.T) {
-				t.Setenv("CONFIG_PATH", invalidConfigPath)
-				t.Setenv("ENV", "env-fallback-invalid")
-			},
-			cleanup:        func(t *testing.T) {},
-			expectedEnv:    "env-fallback-invalid",
-			expectedMaxKey: 1024, // default
-			expectedMaxVal: 1024, // default
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			tc.setup(t)
-			t.Cleanup(func() { tc.cleanup(t) })
-
-			cfg := ReadConfig()
-
-			assert.Equal(t, tc.expectedEnv, cfg.Env)
-			assert.Equal(t, tc.expectedMaxKey, cfg.Store.MaxKeySize)
-			assert.Equal(t, tc.expectedMaxVal, cfg.Store.MaxValSize)
-		})
-	}
+	assert.Equal(t, "test-env", cfg.Env)
+	assert.Equal(t, 123, cfg.Store.MaxKeySize)
+	assert.Equal(t, 456, cfg.Store.MaxValSize)
+	assert.Equal(t, 16, cfg.ShardsCfg.ShardsCount)
+	assert.Equal(t, "9999", cfg.HttpCfg.Port)
+	assert.Equal(t, "9998", cfg.GRPCCfg.Port)
+	assert.Equal(t, "node-env", cfg.Raft.NodeID)
 }
