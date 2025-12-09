@@ -11,9 +11,6 @@ UNIT_TESTS_PKGS := $(shell go list ./... | grep -v /mocks | grep -v /gen | grep 
 
 .PHONY: help build run test test-cover test-perf lint clean docker-build docker-up docker-down swag proto-grpc/compile proto-entries/compile
 
-build: ## Build the Go binary
-	@go build -o $(BINARY_NAME) -ldflags="-w -s" $(CMD_PATH)
-
 run: ## Run the application locally
 	@go run $(CMD_PATH) -cfg_path=$(CONFIG_PATH)
 
@@ -47,31 +44,27 @@ docker-up: ## Start services with Docker Compose in detached mode
 docker-down: ## Stop and remove services started with Docker Compose
 	@docker-compose down
 
-# Recompile proto grpc
-proto-grpc/compile:
+proto-grpc/compile: # Recompile proto grpc
 	@mkdir -p proto/grpc/gen
 	@protoc -I ./proto/grpc \
 	--go_out ./proto/grpc/gen --go_opt=paths=source_relative \
 	--go-grpc_out ./proto/grpc/gen --go-grpc_opt=paths=source_relative \
 	./proto/grpc/kv-store.proto
 
-# Recompile proto log entries
-proto-entries/compile:
+proto-entries/compile: # Recompile proto log entries
 	@mkdir -p proto/log_entries/gen
 	@protoc -I ./proto/log_entries \
 	--go_out ./proto/log_entries/gen --go_opt=paths=source_relative \
 	--go-grpc_out ./proto/log_entries/gen --go-grpc_opt=paths=source_relative \
 	./proto/log_entries/entries.proto
 
-# Recompile proto fsm
-proto-fsm/compile:
+proto-fsm/compile: # Recompile proto fsm
 	@mkdir -p proto/fsm/gen
 	@protoc -I ./proto/fsm \
 	--go_out ./proto/fsm/gen --go_opt=paths=source_relative \
 	./proto/fsm/commands.proto
 
-# Run k6 load test
-load-test/run:
+load-test/run: # Run k6 load test
 	@docker run --rm -i \
 	--network=host \
 	-v $(CURDIR)/internal/tests/k6_scenarios:/src \
