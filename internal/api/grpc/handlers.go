@@ -65,7 +65,7 @@ func (s *Server) Put(ctx context.Context, in *pb.PutReq) (*pb.PutResp, error) {
 		return nil, s.redirectErr(res)
 	}
 
-	promise := s.futures.NewPromise(res.LogIndex)
+	promise := s.futures.NewFuture(res.LogIndex)
 	if err := promise.Wait(ctx); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}
@@ -94,7 +94,7 @@ func (s *Server) Delete(ctx context.Context, in *pb.DeleteReq) (*pb.DeleteResp, 
 		return nil, s.redirectErr(res)
 	}
 
-	promise := s.futures.NewPromise(res.LogIndex)
+	promise := s.futures.NewFuture(res.LogIndex)
 	if err := promise.Wait(ctx); err != nil {
 		return nil, status.Error(codes.Internal, err.Error())
 	}

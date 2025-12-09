@@ -78,12 +78,12 @@ func (_c *MockFuturesStore_Fulfill_Call) RunAndReturn(run func(logIndex int64)) 
 	return _c
 }
 
-// NewPromise provides a mock function for the type MockFuturesStore
-func (_mock *MockFuturesStore) NewPromise(logIndex int64) futures.Future {
+// NewFuture provides a mock function for the type MockFuturesStore
+func (_mock *MockFuturesStore) NewFuture(logIndex int64) futures.Future {
 	ret := _mock.Called(logIndex)
 
 	if len(ret) == 0 {
-		panic("no return value specified for NewPromise")
+		panic("no return value specified for NewFuture")
 	}
 
 	var r0 futures.Future
@@ -97,18 +97,18 @@ func (_mock *MockFuturesStore) NewPromise(logIndex int64) futures.Future {
 	return r0
 }
 
-// MockFuturesStore_NewPromise_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'NewPromise'
-type MockFuturesStore_NewPromise_Call struct {
+// MockFuturesStore_NewFuture_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'NewFuture'
+type MockFuturesStore_NewFuture_Call struct {
 	*mock.Call
 }
 
-// NewPromise is a helper method to define mock.On call
+// NewFuture is a helper method to define mock.On call
 //   - logIndex int64
-func (_e *MockFuturesStore_Expecter) NewPromise(logIndex interface{}) *MockFuturesStore_NewPromise_Call {
-	return &MockFuturesStore_NewPromise_Call{Call: _e.mock.On("NewPromise", logIndex)}
+func (_e *MockFuturesStore_Expecter) NewFuture(logIndex interface{}) *MockFuturesStore_NewFuture_Call {
+	return &MockFuturesStore_NewFuture_Call{Call: _e.mock.On("NewFuture", logIndex)}
 }
 
-func (_c *MockFuturesStore_NewPromise_Call) Run(run func(logIndex int64)) *MockFuturesStore_NewPromise_Call {
+func (_c *MockFuturesStore_NewFuture_Call) Run(run func(logIndex int64)) *MockFuturesStore_NewFuture_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 int64
 		if args[0] != nil {
@@ -121,12 +121,12 @@ func (_c *MockFuturesStore_NewPromise_Call) Run(run func(logIndex int64)) *MockF
 	return _c
 }
 
-func (_c *MockFuturesStore_NewPromise_Call) Return(future futures.Future) *MockFuturesStore_NewPromise_Call {
+func (_c *MockFuturesStore_NewFuture_Call) Return(future futures.Future) *MockFuturesStore_NewFuture_Call {
 	_c.Call.Return(future)
 	return _c
 }
 
-func (_c *MockFuturesStore_NewPromise_Call) RunAndReturn(run func(logIndex int64) futures.Future) *MockFuturesStore_NewPromise_Call {
+func (_c *MockFuturesStore_NewFuture_Call) RunAndReturn(run func(logIndex int64) futures.Future) *MockFuturesStore_NewFuture_Call {
 	_c.Call.Return(run)
 	return _c
 }

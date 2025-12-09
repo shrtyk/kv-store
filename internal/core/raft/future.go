@@ -17,18 +17,23 @@ var (
 type applyFuture struct {
 	mu       sync.RWMutex
 	promises map[int64]*promise
+	pool     sync.Pool
 }
 
 func NewApplyFuture() *applyFuture {
-	return &applyFuture{
+	af := &applyFuture{
 		promises: make(map[int64]*promise),
 	}
+	af.pool.New = func() any {
+		return new(promise)
+	}
+	return af
 }
 
 func (af *applyFuture) StartGC(ctx context.Context) {
 	go func() {
 		// TODO: make configurable
-		t := time.NewTicker(10 * time.Minute)
+		t := time.NewTicker(3 * time.Minute)
 		defer t.Stop()
 		for {
 			select {
@@ -42,21 +47,17 @@ func (af *applyFuture) StartGC(ctx context.Context) {
 }
 
 func (af *applyFuture) cleanMap() {
-	af.mu.RLock()
-	newMap := make(map[int64]*promise, len(af.promises))
-	for i, p := range af.promises {
-		if !(atomic.LoadUint32(&p.isStale) == stale) {
-			newMap[i] = p
-		}
-	}
-	af.mu.RUnlock()
-
 	af.mu.Lock()
 	defer af.mu.Unlock()
-	af.promises = newMap
+	for i, p := range af.promises {
+		if atomic.LoadUint32(&p.isStale) == stale || isClosed(p.done) {
+			delete(af.promises, i)
+			af.pool.Put(p)
+		}
+	}
 }
 
-func (af *applyFuture) NewPromise(logIdx int64) ftr.Future {
+func (af *applyFuture) NewFuture(logIdx int64) ftr.Future {
 	af.mu.Lock()
 	defer af.mu.Unlock()
 
@@ -64,12 +65,16 @@ func (af *applyFuture) NewPromise(logIdx int64) ftr.Future {
 		return p
 	}
 
-	p := NewPromise()
+	p := af.pool.Get().(*promise)
+	p.reset()
 	af.promises[logIdx] = p
 	return p
 }
 
 func isClosed(ch chan struct{}) bool {
+	if ch == nil {
+		return false
+	}
 	select {
 	case <-ch:
 		return true
@@ -84,7 +89,8 @@ func (af *applyFuture) Fulfill(logIdx int64) {
 	if p, exists := af.promises[logIdx]; exists {
 		close(p.done)
 	} else {
-		p := NewPromise()
+		p := af.pool.Get().(*promise)
+		p.reset()
 		close(p.done)
 		af.promises[logIdx] = p
 	}
@@ -100,11 +106,9 @@ type promise struct {
 	done    chan struct{}
 }
 
-func NewPromise() *promise {
-	return &promise{
-		isStale: nonStale,
-		done:    make(chan struct{}),
-	}
+func (p *promise) reset() {
+	p.done = make(chan struct{})
+	atomic.StoreUint32(&p.isStale, nonStale)
 }
 
 func (p *promise) Wait(ctx context.Context) error {

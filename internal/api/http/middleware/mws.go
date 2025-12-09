@@ -68,7 +68,7 @@ func (m *mws) Logging(next http.Handler) http.Handler {
 		ctxWithLog := logger.ToCtx(r.Context(), m.log.With(
 			slog.String("ip", realip.FromRequest(r)),
 			slog.String("user-agent", r.UserAgent()),
-			slog.String("request_id", uuid.New().String()),
+			slog.String("request_id", uuid.NewString()),
 			slog.String("method", r.Method),
 			slog.String("url", r.URL.RequestURI()),
 		))

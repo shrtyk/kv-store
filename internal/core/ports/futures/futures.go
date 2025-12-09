@@ -12,7 +12,7 @@ var (
 //go:generate mockery
 type FuturesStore interface {
 	StartGC(ctx context.Context)
-	NewPromise(logIndex int64) Future
+	NewFuture(logIndex int64) Future
 	Fulfill(logIndex int64)
 }
 

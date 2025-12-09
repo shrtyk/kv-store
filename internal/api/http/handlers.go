@@ -119,7 +119,7 @@ func (h *handlersProvider) PutHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	promise := h.futures.NewPromise(res.LogIndex)
+	promise := h.futures.NewFuture(res.LogIndex)
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 	if err := promise.Wait(ctx); err != nil {
@@ -223,7 +223,7 @@ func (h *handlersProvider) DeleteHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	promise := h.futures.NewPromise(res.LogIndex)
+	promise := h.futures.NewFuture(res.LogIndex)
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
 	if err := promise.Wait(ctx); err != nil {
