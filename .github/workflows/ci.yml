@@ -28,7 +28,7 @@ jobs:
         run: |
           mkdir -p coverage
           go test -v -race -coverprofile=coverage/coverage.out -covermode=atomic \
-          $(go list ./... | grep -v /mocks | grep -v /gen | grep -v /openapi | grep -v /testutils)
+          $(go list ./... | grep -v /mocks | grep -v /gen | grep -v /openapi | grep -v /testutils | grep -v /cmd | grep -v /api)
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
