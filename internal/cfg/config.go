@@ -16,14 +16,12 @@ func init() {
 }
 
 type AppConfig struct {
-	Env       string       `yaml:"env" env:"ENV" env-default:"production"`
-	Store     StoreCfg     `yaml:"store"`
-	ShardsCfg ShardsCfg    `yaml:"shards"`
-	Wal       WalCfg       `yaml:"transactional_logger"`
-	Snapshots SnapshotsCfg `yaml:"snapshots"`
-	HttpCfg   HttpCfg      `yaml:"http"`
-	GRPCCfg   GRPCCfg      `yaml:"grpc"`
-	Raft      RaftCfg      `yaml:"raft"`
+	Env       string    `yaml:"env" env:"ENV" env-default:"production"`
+	Store     StoreCfg  `yaml:"store"`
+	ShardsCfg ShardsCfg `yaml:"shards"`
+	HttpCfg   HttpCfg   `yaml:"http"`
+	GRPCCfg   GRPCCfg   `yaml:"grpc"`
+	Raft      RaftCfg   `yaml:"raft"`
 }
 
 type StoreCfg struct {
@@ -38,19 +36,6 @@ type ShardsCfg struct {
 	MinOpsUntilRebuild int           `yaml:"min_operations_until_rebuild" env:"SHARDS_MIN_OPS_UNTIL_REBUILD" env-default:"2000"`
 	MinDeletes         int           `yaml:"min_deletes" env:"SHARDS_MIN_DELETES" env-default:"500"`
 	WorkersCount       int           `yaml:"rebuild_workers_count" env:"SHARDS_REBUILD_WORKERS_COUNT" env-default:"4"`
-}
-
-type WalCfg struct {
-	LogFileName        string        `yaml:"log_file_name" env:"LOG_NAME" env-default:"wal.log"`
-	MaxSizeBytes       int64         `yaml:"log_size_bytes" env:"MAX_LOG_SIZE_BYTES" env-default:"10485760"`
-	FsyncIn            time.Duration `yaml:"fsync_in" env:"FSYNC_LOG_IN" env-default:"300ms"`
-	FsyncRetriesAmount int           `yaml:"http_retries" env:"FSYNC_RETRIES_ON_SHUTDOWN" env-default:"3"`
-	FsyncRetryIn       time.Duration `yaml:"fsync_retry_in" env:"FSYNC_RETRY_IN" env-default:"500ms"`
-}
-
-type SnapshotsCfg struct {
-	SnapshotsDir       string `yaml:"snapshots_dir" env:"SNAPSHOTS_DIR_PATH" env-default:"./data/snapshots/"`
-	MaxSnapshotsAmount int    `yaml:"max_snapshots" env:"MAX_SNAPSHOTS_AMOUNT" env-default:"2"`
 }
 
 type HttpCfg struct {

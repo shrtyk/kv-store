@@ -88,17 +88,17 @@ raft:
   # The address for exposing raft-internal monitoring via http.
   monitoring_addr: "localhost:16901"
   # Base election timeout.
-  election_timeout: 150ms
+  election_timeout: 600ms
   # The random delta added to the election timeout to prevent split votes.
-  election_timeout_random_delta: 150ms
+  election_timeout_random_delta: 400ms
   # Heartbeat timeout.
-  heartbeat_timeout: 50ms
+  heartbeat_timeout: 100ms
   # Timeout for individual RPCs between Raft peers.
-  rpc_timeout: 50ms
+  rpc_timeout: 500ms
   # Timeout for graceful shutdown.
   shutdown_timeout: 5s
-  # Raft log size threshold in bytes to trigger a snapshot. 8MB
-  snapshot_threshold_bytes: 8388608
+  # Raft log size threshold in bytes to trigger a snapshot (64MB).
+  snapshot_threshold_bytes: 67108864
   # Interval to check if the Raft log size has exceeded the threshold.
   snapshot_check_in: 1s
   # How often the leader sends a heartbeat to the cluster to confirm its leadership before responding to a linearizable read request
