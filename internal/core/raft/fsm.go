@@ -52,7 +52,10 @@ func (f *storeFSM) Start(ctx context.Context) {
 				f.futuresStore.Fulfill(msg.CommandIndex)
 			}
 			if msg.SnapshotValid {
-				f.Restore(msg.Snapshot)
+				if err := f.Restore(msg.Snapshot); err != nil {
+					f.log.Error("failed to restore snapshot", logger.ErrorAttr(err))
+					panic("failed to restore snapshot: " + err.Error())
+				}
 			}
 		}
 	}

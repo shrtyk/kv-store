@@ -113,18 +113,32 @@ func TestFSM_Snapshot(t *testing.T) {
 }
 
 func TestFSM_Restore(t *testing.T) {
-	s := setup(t)
-	items := map[string]string{"key1": "val1", "key2": "val2"}
-	snapshot := &fsm_v1.SnapshotState{Items: items}
-	snapBytes, err := proto.Marshal(snapshot)
-	assert.NoError(t, err)
+	t.Run("restores from snapshot", func(t *testing.T) {
+		s := setup(t)
+		items := map[string]string{"key1": "val1", "key2": "val2"}
+		snapshot := &fsm_v1.SnapshotState{Items: items}
+		snapBytes, err := proto.Marshal(snapshot)
+		assert.NoError(t, err)
 
-	s.mockStore.On("RestoreFromSnapshot", items).Return().Once()
+		s.mockStore.On("RestoreFromSnapshot", items).Return().Once()
 
-	err = s.fsm.Restore(snapBytes)
-	assert.NoError(t, err)
+		err = s.fsm.Restore(snapBytes)
+		assert.NoError(t, err)
 
-	s.mockStore.AssertExpectations(t)
+		s.mockStore.AssertExpectations(t)
+	})
+
+	t.Run("panics on malformed snapshot", func(t *testing.T) {
+		s := setup(t)
+		s.appCh <- &raftapi.ApplyMessage{
+			SnapshotValid: true,
+			Snapshot:      []byte("invalid data"),
+		}
+
+		assert.Panics(t, func() {
+			s.fsm.Start(context.Background())
+		})
+	})
 }
 
 func TestFSM_Read(t *testing.T) {
