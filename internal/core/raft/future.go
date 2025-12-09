@@ -61,7 +61,7 @@ func (af *applyFuture) NewFuture(logIdx int64) ftr.Future {
 	af.mu.Lock()
 	defer af.mu.Unlock()
 
-	if p, exists := af.promises[logIdx]; exists && isClosed(p.done) {
+	if p, exists := af.promises[logIdx]; exists {
 		return p
 	}
 
