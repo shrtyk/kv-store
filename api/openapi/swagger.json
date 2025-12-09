@@ -59,6 +59,12 @@
                             "type": "string"
                         }
                     },
+                    "307": {
+                        "description": "Node is not a leader",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
                     "404": {
                         "description": "Not Found"
                     },
@@ -104,6 +110,12 @@
                     "201": {
                         "description": "Created"
                     },
+                    "307": {
+                        "description": "Node is not a leader",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
                     "400": {
                         "description": "Wrong input data",
                         "schema": {
@@ -136,6 +148,12 @@
                 "responses": {
                     "204": {
                         "description": "No Content"
+                    },
+                    "307": {
+                        "description": "Node is not a leader",
+                        "schema": {
+                            "type": "string"
+                        }
                     },
                     "500": {
                         "description": "Internal Server Error",
