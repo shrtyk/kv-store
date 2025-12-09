@@ -57,7 +57,7 @@ To run a full 3-node cluster:
 
 ```bash
 # Build and start the cluster in detached mode
-@docker compose up -d --build
+docker compose up -d --build
 ```
 
 - The KV store nodes will be available at `http://localhost:8081`, `http://localhost:8082`, and `http://localhost:8083`. You can send requests to any node, and you will be redirected to the leader if necessary.
