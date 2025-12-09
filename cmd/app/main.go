@@ -29,7 +29,6 @@ func main() {
 
 	st := store.NewStore(&wg, &cfg.Store, &cfg.ShardsCfg, slogger)
 	m := pmts.NewPrometheusMetrics()
-	ap := NewApp()
 
 	parsedPeers, err := cfg.Raft.ParsePeers()
 	if err != nil {
@@ -67,22 +66,17 @@ func main() {
 		return
 	}
 
-	ap.Init(
+	app := NewApp()
+	app.Init(
 		WithCfg(cfg),
 		WithStore(st),
 		WithLogger(slogger),
 		WithMetrics(m),
 		WithRaft(raftNode),
+		WithFSM(fsm),
 		WithFutures(futures),
 		WithRaftPublicHTTPAddrs(cfg.Raft.PublicHTTPAddrs),
 	)
 
-	go fsm.Start(ctx)
-	if err := raftNode.Start(); err != nil {
-		slogger.Error("failed to start raft node", log.ErrorAttr(err))
-		return
-	}
-	defer raftNode.Stop()
-
-	ap.Serve(ctx, &wg)
+	app.Serve(ctx, &wg)
 }

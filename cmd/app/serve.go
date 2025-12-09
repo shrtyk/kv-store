@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -52,17 +51,26 @@ func (app *application) Serve(ctx context.Context, wg *sync.WaitGroup) {
 
 		errCh <- grpcServ.Shutdown(tCtx)
 		errCh <- httpServ.Shutdown(tCtx)
+		errCh <- app.raft.Stop()
 		close(errCh)
 	}()
 
 	app.store.StartMapRebuilder(ctx, wg)
 	wg.Go(func() { app.readRaftErrors(ctx) })
+	wg.Go(func() { app.fsm.Start(ctx) })
+
+	if err := app.raft.Start(); err != nil {
+		app.logger.Error("failed to start raft node", logger.ErrorAttr(err))
+		return
+	}
 
 	app.logger.Info("grpc listening", slog.String("port", app.cfg.GRPCCfg.Port))
 	grpcServ.MustStart()
+
 	app.logger.Info("http listening", slog.String("port", app.cfg.HttpCfg.Port))
 	if err := httpServ.ListenAndServe(); err != http.ErrServerClosed {
-		log.Fatalf("server failed to start: %v", err)
+		app.logger.Error("server failed to start", logger.ErrorAttr(err))
+		return
 	}
 
 	if err := <-errCh; err != nil {

@@ -1,30 +1,30 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/shrtyk/kv-store/internal/cfg"
+	futuresmocks "github.com/shrtyk/kv-store/internal/core/ports/futures/mocks"
+	rmocks "github.com/shrtyk/kv-store/internal/core/raft/mocks"
 	"github.com/shrtyk/kv-store/internal/core/store"
 	pmts "github.com/shrtyk/kv-store/internal/infrastructure/prometheus"
-	tutils "github.com/shrtyk/kv-store/internal/tests/testutils"
 	"github.com/shrtyk/kv-store/pkg/logger"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
 
 func TestE2E(t *testing.T) {
 	var wg sync.WaitGroup
 	ap := NewApp()
-	logName := "wal.log"
-	tutils.FileCleanUp(t, logName)
 
-	cfg := &cfg.AppConfig{
+	appCfg := &cfg.AppConfig{
 		Env: "dev",
 		Store: cfg.StoreCfg{
 			MaxKeySize: 1024,
@@ -48,25 +48,33 @@ func TestE2E(t *testing.T) {
 			MinDeletes:         500,
 		},
 	}
-	l := logger.NewLogger(cfg.Env)
-	st := store.NewStore(&wg, &cfg.Store, &cfg.ShardsCfg, l)
+	l := logger.NewLogger(appCfg.Env)
+	st := store.NewStore(&wg, &appCfg.Store, &appCfg.ShardsCfg, l)
 	metric := pmts.NewMockMetrics()
+	stubRaft := rmocks.NewStubRaft(st, true, 0)
+	mockFutures := futuresmocks.NewMockFuturesStore(t)
+	mockFuture := futuresmocks.NewMockFuture(t)
+
+	mockFuture.On("Wait", mock.Anything).Return(nil)
+	mockFutures.On("NewFuture", mock.Anything).Return(mockFuture)
 
 	ap.Init(
-		WithCfg(cfg),
+		WithCfg(appCfg),
 		WithLogger(l),
 		WithStore(st),
 		WithMetrics(metric),
+		WithRaft(stubRaft),
+		WithFutures(mockFutures),
+		WithRaftPublicHTTPAddrs([]string{"http://localhost:16701"}),
 	)
 
-	go func() {
-		ap.Serve(t.Context(), &wg)
-	}()
+	router := ap.NewRouter()
+	server := httptest.NewServer(router)
+	defer server.Close()
 
-	client := &http.Client{}
-	addr := fmt.Sprintf("http://%s:%s", cfg.HttpCfg.Host, cfg.HttpCfg.Port)
+	client := server.Client()
+	addr := server.URL
 
-	// wait for the server to start
 	require.Eventually(t, func() bool {
 		req, err := http.NewRequest(http.MethodGet, addr+"/healthz", nil)
 		if err != nil {
@@ -78,7 +86,7 @@ func TestE2E(t *testing.T) {
 		}
 		defer require.NoError(t, resp.Body.Close())
 		return resp.StatusCode == http.StatusOK
-	}, 5*time.Second, 50*time.Millisecond)
+	}, 1*time.Second, 10*time.Millisecond)
 
 	// PUT a key-value pair
 	putReq, err := http.NewRequest(http.MethodPut, addr+"/v1/testkey", strings.NewReader("testvalue"))
@@ -104,7 +112,7 @@ func TestE2E(t *testing.T) {
 	assert.NoError(t, err)
 	delResp, err := client.Do(delReq)
 	assert.NoError(t, err)
-	assert.Equal(t, http.StatusOK, delResp.StatusCode)
+	assert.Equal(t, http.StatusNoContent, delResp.StatusCode)
 	require.NoError(t, delResp.Body.Close())
 
 	// GET the key again to confirm deletion

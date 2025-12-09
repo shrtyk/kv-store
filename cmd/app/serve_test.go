@@ -8,7 +8,9 @@ import (
 	"testing"
 
 	"github.com/shrtyk/kv-store/internal/cfg"
+	futuresmocks "github.com/shrtyk/kv-store/internal/core/ports/futures/mocks"
 	"github.com/shrtyk/kv-store/internal/core/store"
+	rmocks "github.com/shrtyk/kv-store/internal/core/raft/mocks"
 	pmts "github.com/shrtyk/kv-store/internal/infrastructure/prometheus"
 	tu "github.com/shrtyk/kv-store/internal/tests/testutils"
 	"github.com/stretchr/testify/assert"
@@ -17,15 +19,19 @@ import (
 func TestServe(t *testing.T) {
 	l, _ := tu.NewMockLogger()
 
-	store := store.NewStore(&sync.WaitGroup{}, tu.NewMockStoreCfg(), tu.NewMockShardsCfg(), l)
+	st := store.NewStore(&sync.WaitGroup{}, tu.NewMockStoreCfg(), tu.NewMockShardsCfg(), l)
 	m := pmts.NewMockMetrics()
+	stubRaft := rmocks.NewStubRaft(st, true, 0)
+	mockFutures := futuresmocks.NewMockFuturesStore(t)
 
 	app := NewApp()
 	app.Init(
 		WithCfg(&cfg.AppConfig{}),
 		WithLogger(l),
 		WithMetrics(m),
-		WithStore(store),
+		WithStore(st),
+		WithRaft(stubRaft),
+		WithFutures(mockFutures),
 	)
 
 	router := app.NewRouter()

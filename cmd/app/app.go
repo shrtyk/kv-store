@@ -16,6 +16,7 @@ type application struct {
 	logger              *slog.Logger
 	metrics             metrics.Metrics
 	raft                raftapi.Raft
+	fsm                 raftapi.FSM
 	futures             ftr.FuturesStore
 	raftPublicHTTPAddrs []string
 }
@@ -59,6 +60,12 @@ func WithMetrics(m metrics.Metrics) opt {
 func WithRaft(r raftapi.Raft) opt {
 	return func(app *application) {
 		app.raft = r
+	}
+}
+
+func WithFSM(fsm raftapi.FSM) opt {
+	return func(app *application) {
+		app.fsm = fsm
 	}
 }
 
