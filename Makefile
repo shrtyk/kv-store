@@ -7,7 +7,7 @@ CONFIG_PATH=./config/config.yml
 # Docker parameters
 DOCKER_IMAGE_NAME=kv-store
 
-UNIT_TESTS_PKGS := $(shell go list ./... | grep -v /mocks | grep -v /gen | grep -v /openapi | grep -v /testutils)
+UNIT_TESTS_PKGS := $(shell go list ./... | grep -v /mocks | grep -v /gen | grep -v /testutils)
 
 .PHONY: help build run test test-cover test-perf lint clean docker-build docker-up docker-down swag proto-grpc/compile proto-entries/compile
 
@@ -23,7 +23,7 @@ test: ## Run all unit tests
     -coverprofile=coverage/coverage.out -covermode=atomic ${UNIT_TESTS_PKGS}
 
 test-cover: ## Run unit tests and generate HTML coverage report
-	@go test ./internal/... ./pkg/... -v -coverprofile=coverage.out
+	@go test ${UNIT_TESTS_PKGS} -v -coverprofile=coverage.out
 	@echo "Coverage report generated: coverage.html"
 	@go tool cover -html=coverage.out -o coverage.html
 
@@ -63,10 +63,17 @@ proto-entries/compile:
 	--go-grpc_out ./proto/log_entries/gen --go-grpc_opt=paths=source_relative \
 	./proto/log_entries/entries.proto
 
+# Recompile proto fsm
+proto-fsm/compile:
+	@mkdir -p proto/fsm/gen
+	@protoc -I ./proto/fsm \
+	--go_out ./proto/fsm/gen --go_opt=paths=source_relative \
+	./proto/fsm/commands.proto
+
 # Run k6 load test
 load-test/run:
 	@docker run --rm -i \
-	--network=kv-net \
+	--network=host \
 	-v $(CURDIR)/internal/tests/k6_scenarios:/src \
-	-e BASE_URL=http://kv-store:16700 \
-	grafana/k6 run /src/bulk_put_delete.js
+	-e BASE_URL=http://localhost:8081 \
+	grafana/k6 run /src/load_test.js
