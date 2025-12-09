@@ -7,11 +7,13 @@ import (
 	"syscall"
 
 	"github.com/shrtyk/kv-store/internal/cfg"
-	"github.com/shrtyk/kv-store/internal/core/snapshot"
+	internalRaft "github.com/shrtyk/kv-store/internal/core/raft"
 	"github.com/shrtyk/kv-store/internal/core/store"
-	"github.com/shrtyk/kv-store/internal/core/tlog"
 	pmts "github.com/shrtyk/kv-store/internal/infrastructure/prometheus"
 	log "github.com/shrtyk/kv-store/pkg/logger"
+	raftapi "github.com/shrtyk/raft-core/api"
+	"github.com/shrtyk/raft-core/raft"
+	"github.com/shrtyk/raft-core/transport"
 )
 
 // @title           KV-Store API
@@ -23,28 +25,64 @@ func main() {
 	defer cancel()
 
 	cfg := cfg.ReadConfig()
-	logger := log.NewLogger(cfg.Env)
+	slogger := log.NewLogger(cfg.Env)
 
-	snapshotter := snapshot.NewFileSnapshotter(&cfg.Snapshots, logger)
+	st := store.NewStore(&wg, &cfg.Store, &cfg.ShardsCfg, slogger)
+	m := pmts.NewPrometheusMetrics()
+	ap := NewApp()
 
-	tl := tlog.MustCreateNewFileTransLog(&cfg.Wal, logger, snapshotter)
+	parsedPeers, err := cfg.Raft.ParsePeers()
+	if err != nil {
+		slogger.Error("failed to parse peers", log.ErrorAttr(err))
+		return
+	}
+
+	conns, closeConns, err := transport.SetupConnections(parsedPeers.Addrs)
+	if err != nil {
+		slogger.Error("failed to setup connections", log.ErrorAttr(err))
+		return
+	}
 	defer func() {
-		if err := tl.Close(); err != nil {
-			logger.Error("failed to close transaction logger", log.ErrorAttr(err))
+		if err := closeConns(); err != nil {
+			slogger.Error("failed to close connections", log.ErrorAttr(err))
 		}
 	}()
 
-	m := pmts.NewPrometheusMetrics()
-	st := store.NewStore(&wg, &cfg.Store, &cfg.ShardsCfg, logger)
+	raftCfg := cfg.Raft.MapToRaftApiCfg(cfg.Env)
+	raftTransport, err := transport.NewGRPCTransport(raftCfg, conns)
+	if err != nil {
+		slogger.Error("failed to create raft transport", log.ErrorAttr(err))
+		return
+	}
 
-	ap := NewApp()
+	applyCh := make(chan *raftapi.ApplyMessage, 128)
+	futures := internalRaft.NewApplyFuture()
+	fsm := internalRaft.NewFSM(slogger, st, futures, applyCh)
+
+	raftNode, err := raft.NewNodeBuilder(ctx, parsedPeers.Me, applyCh, fsm, raftTransport).
+		WithConfig(raftCfg).
+		Build()
+	if err != nil {
+		slogger.Error("failed to build raft node", log.ErrorAttr(err))
+		return
+	}
+
 	ap.Init(
 		WithCfg(cfg),
 		WithStore(st),
-		WithTransactionalLogger(tl),
-		WithLogger(logger),
+		WithLogger(slogger),
 		WithMetrics(m),
+		WithRaft(raftNode),
+		WithFutures(futures),
+		WithRaftPublicHTTPAddrs(cfg.Raft.PublicHTTPAddrs),
 	)
+
+	go fsm.Start(ctx)
+	if err := raftNode.Start(); err != nil {
+		slogger.Error("failed to start raft node", log.ErrorAttr(err))
+		return
+	}
+	defer raftNode.Stop()
 
 	ap.Serve(ctx, &wg)
 }

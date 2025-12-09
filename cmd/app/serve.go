@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	chimw "github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	_ "github.com/shrtyk/kv-store/api/openapi"
 	"github.com/shrtyk/kv-store/internal/api/grpc"
@@ -32,9 +34,11 @@ func (app *application) Serve(ctx context.Context, wg *sync.WaitGroup) {
 		&app.cfg.GRPCCfg,
 		&app.cfg.Store,
 		app.store,
-		app.tl,
 		app.metrics,
 		app.logger,
+		app.raft,
+		app.futures,
+		app.raftPublicHTTPAddrs,
 	)
 
 	errCh := make(chan error, 1)
@@ -51,8 +55,8 @@ func (app *application) Serve(ctx context.Context, wg *sync.WaitGroup) {
 		close(errCh)
 	}()
 
-	app.tl.Start(ctx, wg, app.store)
 	app.store.StartMapRebuilder(ctx, wg)
+	wg.Go(func() { app.readRaftErrors(ctx) })
 
 	app.logger.Info("grpc listening", slog.String("port", app.cfg.GRPCCfg.Port))
 	grpcServ.MustStart()
@@ -70,26 +74,33 @@ func (app *application) Serve(ctx context.Context, wg *sync.WaitGroup) {
 	app.logger.Info("application stopped")
 }
 
-type HandlersProvider interface {
-	Healthz(w http.ResponseWriter, r *http.Request)
-	PutHandler(w http.ResponseWriter, r *http.Request)
-	GetHandler(w http.ResponseWriter, r *http.Request)
-	DeleteHandler(w http.ResponseWriter, r *http.Request)
-}
-
-type Middlewares interface {
-	HttpMetrics(http.Handler) http.Handler
-	Logging(next http.Handler) http.Handler
+func (app *application) readRaftErrors(ctx context.Context) {
+	select {
+	case <-ctx.Done():
+		return
+	case err := <-app.raft.Errors():
+		err = fmt.Errorf("raft critical error occurred: %w", err)
+		panic(err.Error())
+	}
 }
 
 func (app *application) NewRouter() *chi.Mux {
-	var handlers HandlersProvider = appHttp.NewHandlersProvider(&app.cfg.Store, app.store, app.tl, app.metrics)
-	var mws Middlewares = mw.NewMiddlewares(app.logger, app.metrics)
+	handlers := appHttp.NewHandlersProvider(
+		&app.cfg.Store,
+		app.store,
+		app.metrics,
+		app.raft,
+		app.futures,
+		app.raftPublicHTTPAddrs,
+	)
+	mws := mw.NewMiddlewares(app.logger, app.metrics)
 
 	mux := chi.NewMux()
 
-	mux.Mount("/debug", chimw.Profiler())
+	mux.Use(cors.AllowAll().Handler)
+	mux.Use(mws.RequestTimeout)
 
+	mux.Mount("/debug", chimw.Profiler())
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.Get("/swagger/*", httpSwagger.WrapHandler)
 	mux.Get("/healthz", handlers.Healthz)

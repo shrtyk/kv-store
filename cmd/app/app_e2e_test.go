@@ -10,9 +10,7 @@ import (
 	"time"
 
 	"github.com/shrtyk/kv-store/internal/cfg"
-	"github.com/shrtyk/kv-store/internal/core/snapshot"
 	"github.com/shrtyk/kv-store/internal/core/store"
-	"github.com/shrtyk/kv-store/internal/core/tlog"
 	pmts "github.com/shrtyk/kv-store/internal/infrastructure/prometheus"
 	tutils "github.com/shrtyk/kv-store/internal/tests/testutils"
 	"github.com/shrtyk/kv-store/pkg/logger"
@@ -23,27 +21,14 @@ import (
 func TestE2E(t *testing.T) {
 	var wg sync.WaitGroup
 	ap := NewApp()
-	tempDir := t.TempDir()
 	logName := "wal.log"
 	tutils.FileCleanUp(t, logName)
 
 	cfg := &cfg.AppConfig{
 		Env: "dev",
 		Store: cfg.StoreCfg{
-			MaxKeySize:  1024,
-			MaxValSize:  1024,
-			ShardsCount: 32,
-		},
-		Wal: cfg.WalCfg{
-			LogFileName:        logName,
-			MaxSizeBytes:       10485760,
-			FsyncIn:            300 * time.Millisecond,
-			FsyncRetriesAmount: 3,
-			FsyncRetryIn:       500 * time.Millisecond,
-		},
-		Snapshots: cfg.SnapshotsCfg{
-			SnapshotsDir:       tempDir,
-			MaxSnapshotsAmount: 2,
+			MaxKeySize: 1024,
+			MaxValSize: 1024,
 		},
 		HttpCfg: cfg.HttpCfg{
 			Host:               "localhost",
@@ -56,6 +41,7 @@ func TestE2E(t *testing.T) {
 			Port: "16702",
 		},
 		ShardsCfg: cfg.ShardsCfg{
+			ShardsCount:        32,
 			CheckFreq:          30 * time.Second,
 			SparseRatio:        0.5,
 			MinOpsUntilRebuild: 2000,
@@ -64,15 +50,12 @@ func TestE2E(t *testing.T) {
 	}
 	l := logger.NewLogger(cfg.Env)
 	st := store.NewStore(&wg, &cfg.Store, &cfg.ShardsCfg, l)
-	snapshotter := snapshot.NewFileSnapshotter(&cfg.Snapshots, l)
-	tl := tlog.MustCreateNewFileTransLog(&cfg.Wal, l, snapshotter)
 	metric := pmts.NewMockMetrics()
 
 	ap.Init(
 		WithCfg(cfg),
 		WithLogger(l),
 		WithStore(st),
-		WithTransactionalLogger(tl),
 		WithMetrics(metric),
 	)
 
