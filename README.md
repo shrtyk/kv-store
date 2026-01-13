@@ -17,24 +17,6 @@ A high-performance, distributed, persistent, and observable in-memory key-value 
 - **Built-in Observability**: Comes with a pre-configured Grafana dashboard for monitoring key performance metrics via Prometheus, including Raft-specific metrics.
 - **Automatic Memory Reclamation**: Periodically rebuilds storage shards to reclaim memory from deleted items, preventing memory bloat in write-heavy workloads.
 
-## Architecture and Design Decisions
-
-This project was built with a focus on exploring the core principles behind modern distributed data systems.
-
-### From Single-Node to Distributed
-
-The store was originally a single-node application that used a traditional Write-Ahead Log (WAL) and periodic snapshots for persistence. To improve fault tolerance and scalability, it was re-architected into a distributed system using [Raft consensus algorithm](https://raft.github.io/).
-
-### High-Throughput Concurrency
-
-- **Problem**: A single, global lock on a central data map creates a bottleneck under concurrent loads.
-- **Solution**: A **sharded map** partitions the key space across many maps, each with its own lock. This distributes write contention, significantly improving parallelism and throughput.
-
-### Fault Tolerance and Consistency
-
-- **Problem**: A single-node store is a single point of failure.
-- **Solution**: By integrating the `raft-core` library, the key-value store is transformed into a distributed state machine. All write operations (`PUT`, `DELETE`) are submitted to the Raft log. A command is only applied to the state machine (the in-memory map) after it has been replicated to a majority of nodes in the cluster, guaranteeing strong consistency. Read operations (`GET`) are served by the leader, ensuring clients always receive up-to-date data (linearizability).
-
 ## Configuration
 
 Before running the application, you need to create a `config.yml` file. A commented example is provided in `config/config.example.yml`. You can copy and modify it to get started:
